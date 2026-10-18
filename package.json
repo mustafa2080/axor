@@ -1,0 +1,21 @@
+{
+  "name": "axor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AXOR — SaaS platform for managing systems and subscriptions (STARK first, CAPRINA later)",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter frontend dev",
+    "dev:api": "pnpm --filter backend dev",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:generate": "pnpm --filter backend db:generate",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+  }
+}

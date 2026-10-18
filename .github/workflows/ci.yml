@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Throwaway database for integration tests. These values only exist inside the CI job
+    # and are NOT real secrets. Tests always switch to the `axor_test` database.
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: ci_root_only
+          MARIADB_DATABASE: axor_test
+          MARIADB_USER: axor_app
+          MARIADB_PASSWORD: ci_app_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: mysql://axor_app:ci_app_only@127.0.0.1:3306/axor_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version is read from the root package.json "packageManager" field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (lockfile must be up to date)
+        run: pnpm install --frozen-lockfile
+
+      - name: Check (typecheck, lint, test, build)
+        run: pnpm check
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fails on high/critical advisories in production dependencies.
+      - run: pnpm audit --prod --audit-level=high
