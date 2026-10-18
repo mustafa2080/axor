@@ -436,7 +436,7 @@ axor/
 - [x] إنشاء Monorepo وpnpm workspaces. — *2026-10-18 (راجع البند 3)*
 - [ ] إعداد React وNode.js وTypeScript وأدوات الجودة.
 - [ ] إعداد قاعدة البيانات وmigrations والاختبارات.
-- [ ] إعداد logging وerror handling وvalidation.
+- [x] إعداد logging وerror handling وvalidation. — *2026-10-18: logging منظّم (pino عبر Fastify، `LOG_LEVEL`، request id لكل طلب في الهيدر `x-request-id`، redaction للـ authorization/cookie/password/token، وتسجيل المسار بدون query string)؛ `AppError` + factories؛ `parseInput()` بـ Zod يرجّع 400 `VALIDATION_ERROR` بمسارات الحقول فقط من غير قيم المستخدم. تحقق: 25 اختبار ناجح، وتشغيل فعلي للخادم أكد إن التوكن في الـ query والهيدر مش بيظهر في السجل.*
 - [x] إعداد CI وبيئات التطوير والاختبار. — *2026-10-18: كُتب `.github/workflows/ci.yml` (typecheck + lint + test + build مع MariaDB service، وaudit للاعتماديات)؛ اتحقق محلياً من صحة YAML و`pnpm install --frozen-lockfile` و`pnpm audit --prod` (0 ثغرات). تحقق: run #1 على GitHub (commit 017e53e) انتهى بنجاح، jobs: check + audit.*
 
 ### المرحلة C — الحسابات والشركات
@@ -539,6 +539,7 @@ axor/
 | 2026-10-18 — ربط Drizzle بـ MariaDB (pool + ping)، أول migration (`0000_baseline`)، readiness check، اختبارات تكامل على `axor_test` (11 اختبار) | [x] | الدليل: `pnpm db:migrate` اتطبق على `axor_dev`، و`pnpm check` نجح، والخادم الفعلي رد على `/health` و`/health/ready`. مفيش جداول أعمال لسه (المخطط محتاج اعتماد المدير) |
 | 2026-10-18 — توحيد شكل الاستجابات (`ok()`)، و`git init` مع التحقق من `.gitignore` | [x] | الدليل: `git check-ignore` أكد تجاهل `.env`، واختبارات `ok()` ناجحة |
 | 2026-10-18 — إعداد CI (GitHub Actions: check + audit مع MariaDB service) + رفع المستودع على GitHub (`mustafa2080/axor`) | [x] | الدليل: run #1 نجح على commit 017e53e |
+| 2026-10-18 — logging وerror handling وvalidation (request id، redaction، `AppError`، `parseInput`) | [x] | الدليل: 25 اختبار ناجح، `pnpm check` نجح، وفحص يدوي للسجل الحقيقي (لا تسريب) |
 
 ---
 
