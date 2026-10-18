@@ -8,6 +8,8 @@ export function createDatabase(databaseUrl: string) {
     waitForConnections: true,
     queueLimit: 100,
     connectTimeout: 5_000,
+    // All datetime columns are UTC (ADR-0003 §2): never let the driver apply the machine's local zone.
+    timezone: 'Z',
   });
   const db = drizzle({ client: pool });
 

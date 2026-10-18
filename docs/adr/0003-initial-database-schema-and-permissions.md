@@ -1,68 +1,78 @@
 # ADR-0003: مخطط قاعدة البيانات الأولي وتدفق الصلاحيات
 
-- **الحالة:** مقترح — بانتظار اعتماد المدير (لا تُنشأ جداول أعمال قبل الاعتماد)
-- **التاريخ:** 2026-10-18
-- **مرتبط بـ:** ADR-0002، `TASKS.md` (المرحلة A: «اعتماد مخطط قاعدة البيانات الأولي وتدفق الصلاحيات»، والأقسام 7 و8)
+- **الحالة:** مقبول بإجابات المدير على الأسئلة المفتوحة (2026-10-18). نقطتان بافتراض معلن، انظر «القرارات المحسومة».
+- **التاريخ:** 2026-10-18 (عُدِّل بعد إجابات المدير في نفس اليوم)
+- **مرتبط بـ:** ADR-0002، `TASKS.md` (المرحلة A، والأقسام 7 و8)
 
 ## السياق
 
-قاعدة MariaDB وDrizzle والـ migrations جاهزة، لكن `backend/src/database/schema/` فارغ عمدًا. هذا المستند يقترح المخطط الأول وتدفق التفويض ليراجعهما المدير. يغطي ما يلزم للمراحل C (الحسابات والشركات) وD (الأنظمة والباقات والتجربة) فقط؛ الباقي مؤجل صراحة (انظر «خارج النطاق»).
+قاعدة MariaDB وDrizzle والـ migrations جاهزة. هذا المستند يحدد المخطط الأول وتدفق التفويض للمراحل C (الحسابات والشركات) وD (الأنظمة والباقات والتجربة) فقط؛ الباقي مؤجل (انظر «خارج النطاق»).
 
-> **افتراض مهم:** لم يُراجع كود STARK الفعلي بعد (بند منفصل في المرحلة A). أي نقطة تخص التكامل معه معلّمة كسؤال مفتوح.
+## القرارات المحسومة من المدير
 
-## القرارات المقترحة
+| # | السؤال | القرار | أثره على التصميم |
+|---|---|---|---|
+| 1 | مستخدم في أكثر من شركة؟ | **لا** | لا جدول `memberships`؛ المستخدم ينتمي لشركة واحدة (`users.tenant_id`) أو يكون موظف منصة (بلا شركة) |
+| 2 | التحقق من البريد شرط للتجربة؟ | **لا** | `email_verified_at` اختياري؛ منع إساءة التجربة يعتمد على تطبيع البريد (انظر المخاطر) |
+| 3 | منع إساءة التجربة | **لكل (شركة + نظام) وأيضًا لكل بريد** — *الإجابة كانت «نعم» على السؤال المزدوج، فُسِّرت بأنها الاثنان معًا* | جدول `trial_claims` مع `UNIQUE(product_id, email_key)` بالإضافة إلى `UNIQUE(tenant_id, product_id)` |
+| 4 | تغيير الباقة يسري على…؟ | **الحاليين والجدد معًا** | الاشتراك يشير إلى `plan_id` ويُحسب استحقاقه من النسخة الحالية للباقة؛ نسخة مثبّتة (`pinned_plan_version_id`) استثناءً يضعه الأدمن فقط |
+| 5 | الاحتفاظ بالبيانات بعد إغلاق الشركة؟ | **نعم** | إغلاق الشركة = `status = closed` فقط، **بلا حذف فعلي** في الإصدار الأول. مدة الاحتفاظ وطلبات الحذف القانونية تُحسم لاحقًا |
+| 6 | هل لـ STARK نموذج شركات خاص؟ | **لا** — *افتراض: AXOR هو مصدر الحقيقة للشركات والمستخدمين* | بيانات STARK تُربط بـ `tenants.id` الخاص بـ AXOR. يحتاج تأكيدًا بعد مراجعة كود STARK لأنه نفسه multi-tenant ويعزل بياناته حاليًا |
+
+## القرارات المعمارية
 
 ### 1. عزل الشركات (Multi-tenancy)
 
-**قاعدة مشتركة مع عمود `tenant_id`** في كل جدول يخص شركة، مع الفرض في طبقة التطبيق (لأن MariaDB بلا Row-Level Security، انظر ADR-0002):
+**قاعدة مشتركة مع عمود `tenant_id`**، والفرض في طبقة التطبيق (MariaDB بلا Row-Level Security، انظر ADR-0002):
 
-- كل وصول لبيانات شركة يمر عبر Repository يستقبل `tenantId` كوسيط إلزامي، ولا يوجد استعلام على جداول الشركات من خارج الـ Repositories.
-- `tenant_id` يُؤخذ دائمًا من سياق المصادقة (العضوية)، **لا** من جسم الطلب أو الـ query.
-- اختبارات عزل (شركة A لا تقرأ/تعدّل بيانات B) تُكتب قبل أول endpoint يقرأ بيانات شركة.
-- **البديل المرفوض حاليًا:** قاعدة لكل شركة. تعقّد الـ migrations والنسخ الاحتياطي من غير حاجة مثبتة. يُعاد النظر فقط عند وجود متطلب تعاقدي صريح.
+- كل وصول لبيانات شركة يمر عبر Repository يستقبل `tenantId` كوسيط إلزامي.
+- بما أن المستخدم ينتمي لشركة واحدة، **`tenant_id` يأتي دائمًا من سجل المستخدم المصادَق عليه**، لا من الطلب (لا header ولا body ولا query).
+- اختبارات عزل (شركة A لا تقرأ/تعدّل بيانات B) قبل أول endpoint يقرأ بيانات شركة.
+- البديل المرفوض: قاعدة لكل شركة (تعقيد في الـ migrations والنسخ الاحتياطي بلا حاجة مثبتة).
 
 ### 2. المعرّفات والأنواع
 
-- معرّفات `char(36)` بصيغة **UUIDv7** تُولَّد في التطبيق (غير قابلة للتخمين، ومرتبة زمنيًا فلا تضرّ بالفهارس).
+- `char(36)` بصيغة **UUIDv7** تُولَّد في التطبيق.
 - التواريخ `datetime(3)` بتوقيت UTC.
-- المبالغ **أعداد صحيحة بأصغر وحدة** (`price_minor`) مع عمود `currency`؛ ممنوع `float`.
-- الحالات `varchar` مقيّدة بـ enum في الكود (Zod/Drizzle) بدل MariaDB ENUM لتسهيل الـ migrations.
-- الحذف: **تعطيل (`status`)** وليس حذفًا فعليًا للكيانات الأساسية؛ سجل التدقيق لا يُحذف ولا يُعدَّل.
+- المبالغ أعداد صحيحة بأصغر وحدة (`price_minor`) مع `currency`؛ ممنوع `float`.
+- الحالات `varchar` مقيّدة بقيم enum في الكود بدل MariaDB ENUM.
+- التعطيل (`status`) بدل الحذف الفعلي. `audit_logs` إدراج فقط.
 
-### 3. الكيانات (الإصدار الأول)
+### 3. الكيانات (11 جدول)
 
 | الجدول | أهم الأعمدة | القيود والفهارس |
 |---|---|---|
-| `users` | `id`, `email` (مُطبَّع lowercase), `password_hash` (Argon2id), `status` (active/disabled), `platform_role` (nullable: owner/admin/support), `email_verified_at`, `created_at`, `updated_at` | `UNIQUE(email)` |
-| `tenants` | `id`, `name`, `status` (active/suspended/closed), `created_at`, `updated_at` | — |
-| `memberships` | `id`, `tenant_id`, `user_id`, `role` (owner/admin/member/read_only), `status` (invited/active/disabled), `created_at` | `UNIQUE(tenant_id, user_id)`، `INDEX(user_id)`، FK لكليهما |
-| `products` | `id`, `code` (`stark`/`caprina`), `name`, `status` (available/coming_soon/disabled) | `UNIQUE(code)` |
+| `tenants` | `id`, `name`, `status` (active/suspended/closed), `closed_at` | — |
+| `users` | `id`, `email` (lowercase), `password_hash` (Argon2id، فارغ للمدعو), `status` (active/invited/disabled), `tenant_id` (فارغ لموظف المنصة), `tenant_role` (owner/admin/member/read_only), `platform_role` (owner/admin/support), `email_verified_at` | `UNIQUE(email)`، `INDEX(tenant_id)`، **CHECK:** إما (`tenant_id` + `tenant_role` بلا `platform_role`) أو (`platform_role` بلا شركة ولا دور شركة) |
+| `products` | `id`, `code`, `name`, `status` (available/coming_soon/disabled) | `UNIQUE(code)` |
 | `business_activities` | `id`, `product_id`, `code`, `name`, `status` | `UNIQUE(product_id, code)` |
-| `plans` | `id`, `product_id`, `activity_id` (nullable), `code`, `status` | `UNIQUE(product_id, code)` |
-| `plan_versions` | `id`, `plan_id`, `version`, `price_minor`, `currency`, `billing_period`, `trial_days`, `limits` (JSON), `features` (JSON), `created_at` | `UNIQUE(plan_id, version)`؛ **غير قابل للتعديل بعد الإنشاء** |
-| `subscriptions` | `id`, `tenant_id`, `product_id`, `plan_version_id`, `status` (trialing/active/past_due/canceled/expired), `trial_ends_at`, `current_period_end`, `canceled_at`, `created_at`, `updated_at` | `UNIQUE(tenant_id, product_id)`، `INDEX(status, current_period_end)` |
-| `subscription_events` | `id`, `subscription_id`, `tenant_id`, `type`, `from_status`, `to_status`, `actor_user_id`, `created_at` | `INDEX(subscription_id, created_at)` |
-| `refresh_sessions` | `id`, `user_id`, `family_id`, `token_hash`, `expires_at`, `revoked_at`, `replaced_by_id`, `user_agent`, `created_at` | `UNIQUE(token_hash)`، `INDEX(user_id)`, `INDEX(family_id)` |
-| `audit_logs` | `id`, `actor_user_id`, `tenant_id` (nullable), `action`, `target_type`, `target_id`, `metadata` (JSON، بلا بيانات حساسة)، `request_id`, `created_at` | `INDEX(tenant_id, created_at)`، `INDEX(actor_user_id, created_at)`؛ إدراج فقط |
+| `plans` | `id`, `product_id`, `activity_id` (اختياري), `code`, `status` (active/archived), `current_version_id` | `UNIQUE(product_id, code)` |
+| `plan_versions` | `id`, `plan_id`, `version`, `price_minor`, `currency`, `billing_period`, `trial_days`, `limits` (JSON), `features` (JSON) | `UNIQUE(plan_id, version)`؛ لا تُعدَّل بعد الإنشاء |
+| `subscriptions` | `id`, `tenant_id`, `product_id`, `plan_id`, `pinned_plan_version_id` (اختياري), `status` (trialing/active/past_due/canceled/expired), `trial_ends_at`, `current_period_end`, `canceled_at` | `UNIQUE(tenant_id, product_id)`، `INDEX(status, current_period_end)` |
+| `subscription_events` | `id`, `subscription_id`, `tenant_id`, `type`, `from_status`, `to_status`, `actor_user_id` | `INDEX(subscription_id, created_at)` |
+| `trial_claims` | `id`, `product_id`, `tenant_id`, `email_key` | `UNIQUE(product_id, email_key)`، `UNIQUE(product_id, tenant_id)` |
+| `refresh_sessions` | `id`, `user_id`, `family_id`, `token_hash`, `expires_at`, `revoked_at`, `replaced_by_id`, `user_agent` | `UNIQUE(token_hash)`، `INDEX(user_id)`، `INDEX(family_id)` |
+| `audit_logs` | `id`, `actor_user_id`, `tenant_id`, `action`, `target_type`, `target_id`, `metadata` (JSON بلا بيانات حساسة)، `request_id` | `INDEX(tenant_id, created_at)`، `INDEX(actor_user_id, created_at)`؛ بلا FKs كي لا يتعطل التسجيل |
 
-ملاحظات تصميم:
+ملاحظات:
 
-- **`plan_versions`** تحمي العقود القائمة: تعديل باقة = إنشاء نسخة جديدة، والاشتراك يشير إلى النسخة التي اشترك بها (يحسم جزئيًا سؤال «هل يسري التغيير على الاشتراكات الحالية؟»: افتراضيًا **لا**).
-- **`UNIQUE(tenant_id, product_id)` في `subscriptions`:** صف واحد لكل شركة ونظام، والتاريخ في `subscription_events`. MariaDB لا تدعم فهارس فريدة جزئية، فهذا أبسط من فرض «اشتراك نشط واحد» بالكود فقط.
-- **الميزات والحدود (Entitlements)** تُشتق من `plan_versions.limits/features` في الإصدار الأول بدل جدول مستقل؛ تُفصل لاحقًا إن لزم.
-- **حالة النظام** (`products.status`) في قاعدة البيانات لا في الكود، لتفعيل CAPRINA لاحقًا دون إعادة نشر.
-- `refresh_sessions`: refresh token **opaque عشوائي يُخزَّن مُجزَّأً (hash)** مع تدوير عند كل استخدام؛ إعادة استخدام توكن مُدوَّر تُبطل العائلة كلها (`family_id`).
+- **سياسة الباقات (القرار 4):** تعديل باقة = إنشاء `plan_versions` جديدة وتحريك `plans.current_version_id`؛ كل الاشتراكات (غير المثبّتة) تلتقط النسخة الجديدة فورًا. النسخ القديمة تبقى للتاريخ والتدقيق. تحريك النسخة يُسجَّل في `audit_logs`. **تنبيه:** عند إضافة الدفع لاحقًا، رفع السعر على مشتركين دافعين يحتاج إشعارًا مسبقًا وسياسة واضحة.
+- **`UNIQUE(tenant_id, product_id)`:** صف اشتراك واحد لكل شركة ونظام، والتاريخ في `subscription_events` (MariaDB بلا فهارس فريدة جزئية).
+- `plans.current_version_id` بلا FK عمدًا (تجنب دورة مع `plan_versions`)، ويُتحقق منه في التطبيق.
+- الاستحقاقات (Entitlements) تُشتق من `limits/features` في النسخة الفعّالة؛ تُفصل لاحقًا إن لزم.
+- `products.status` في قاعدة البيانات لتفعيل CAPRINA لاحقًا دون إعادة نشر.
+- `refresh_sessions`: refresh token عشوائي opaque يُخزَّن مُجزَّأً مع تدوير عند كل استخدام؛ إعادة استخدام توكن مُدوَّر تُبطل العائلة (`family_id`).
 
 ```mermaid
 erDiagram
-    users ||--o{ memberships : has
-    tenants ||--o{ memberships : has
+    tenants ||--o{ users : employs
     tenants ||--o{ subscriptions : owns
+    tenants ||--o{ trial_claims : claims
     products ||--o{ subscriptions : for
     products ||--o{ business_activities : has
     products ||--o{ plans : has
     plans ||--o{ plan_versions : versions
-    plan_versions ||--o{ subscriptions : "subscribed to"
+    plans ||--o{ subscriptions : "subscribed to"
     subscriptions ||--o{ subscription_events : history
     users ||--o{ refresh_sessions : has
     users ||--o{ audit_logs : acts
@@ -70,41 +80,33 @@ erDiagram
 
 ### 4. الأدوار والصلاحيات
 
-- **نطاقان منفصلان:**
-  - **المنصة** (`users.platform_role`): Platform Owner / Platform Admin / Support (قراءة محدودة).
-  - **الشركة** (`memberships.role`): Tenant Owner / Admin / Member / Read-only.
-- صلاحية المنصة لا تمنح تلقائيًا وصولًا لبيانات شركة؛ دخول فريق AXOR إلى بيانات شركة يمرّ بإجراء إداري صريح ويُسجَّل في `audit_logs`.
-- **RBAC بجدول ثابت في الكود** (`role → permissions`) في الإصدار الأول، مع اختبار لكل دور وكل عملية. جداول Role/Permission الديناميكية مؤجلة حتى تظهر حاجة فعلية لأدوار مخصصة.
-- العميل لا يستطيع تعيين `role` أو `tenant_id` أو `price` أو `status` من الطلب (Mass Assignment: حقول مسموحة صراحة في كل schema).
+- **نطاقان منفصلان:** المنصة (`platform_role`: owner/admin/support) والشركة (`tenant_role`: owner/admin/member/read_only). المستخدم في نطاق واحد فقط (يفرضه CHECK).
+- صلاحية المنصة لا تمنح تلقائيًا وصولًا لبيانات شركة؛ دخول فريق AXOR لبيانات شركة إجراء إداري صريح يُسجَّل في `audit_logs`.
+- **RBAC بجدول ثابت في الكود** (`role → permissions`) مع اختبار لكل دور وكل عملية.
+- العميل لا يعيّن `role` أو `tenant_id` أو `price` أو `status` من الطلب (حقول مسموحة صراحة في كل schema).
 
 ### 5. تدفق التفويض لكل طلب
 
-1. **المصادقة:** التحقق من الـ access token (JWT قصير العمر، لا claims حساسة)، وتحميل `users.status` من القاعدة (تعطيل الحساب يسري فورًا).
-2. **سياق الشركة:** تحديد الشركة المطلوبة (من المسار/الهيدر) والتحقق أنها ضمن عضويات المستخدم `active`. لا يُقبل `tenant_id` من الـ body.
-3. **التفويض:** فحص صلاحية الدور على العملية المطلوبة.
-4. **الاستحقاق (Entitlement):** الاشتراك في حالة تسمح (`trialing`/`active`) والحد المطلوب لم يُتجاوز؛ مصدر الحقيقة الخادم.
+1. **المصادقة:** access token (JWT قصير، بلا claims حساسة) وتحميل `users.status` من القاعدة (التعطيل يسري فورًا).
+2. **سياق الشركة:** من `users.tenant_id` مباشرة، والتحقق أن `tenants.status` يسمح بالوصول.
+3. **التفويض:** صلاحية الدور على العملية.
+4. **الاستحقاق:** الاشتراك `trialing`/`active` والحدود غير متجاوزة، محسوبة من النسخة الفعّالة للباقة.
 5. **الوصول للبيانات:** عبر Repository مقيّد بـ `tenant_id`.
-6. **التدقيق:** العمليات الإدارية والحساسة تُسجَّل في `audit_logs` (بدون كلمات مرور أو توكنات).
+6. **التدقيق:** العمليات الإدارية والحساسة في `audit_logs` (بلا كلمات مرور أو توكنات).
 
 ### 6. المصادقة
 
-- كلمات المرور: **Argon2id**، ورسائل دخول واستعادة لا تكشف وجود الحساب.
-- Access token قصير (مقترح 15 دقيقة)، وrefresh token في Cookie `HttpOnly; Secure; SameSite` مع حماية CSRF مناسبة؛ يُحسم الشكل النهائي مع تصميم الواجهة.
-- rate limiting على الدخول والتسجيل والاستعادة (بند أمني منفصل).
+Argon2id، ورسائل لا تكشف وجود الحساب، وaccess token قصير (مقترح 15 دقيقة)، وrefresh token في Cookie `HttpOnly; Secure; SameSite` مع حماية CSRF؛ التفاصيل النهائية مع تصميم الواجهة. rate limiting بند أمني منفصل.
+
+## المخاطر المعروفة
+
+- **منع التجربة بالبريد دون تحقق منه ضعيف:** `email_key` = البريد بعد `trim` + `lowercase` + حذف `+tag` فقط. من يملك عدة عناوين حقيقية يلتف عليه، وعناوين Gmail بنقاط مختلفة لا تُطابَق. تقوية ذلك لاحقًا (تحقق البريد/جهاز/IP) قرار منتج.
+- **ربط STARK:** افتراض «AXOR مصدر الحقيقة للشركات» يحتاج تأكيدًا بعد مراجعة كود STARK، لأن STARK نفسه multi-tenant.
 
 ## خارج النطاق (مؤجل)
 
-الدفع الإلكتروني، `domains/deployments`، `notifications`، جداول أدوار ديناميكية، والتكامل التفصيلي مع STARK (ينتظر مراجعة كوده).
+الدفع الإلكتروني، `domains/deployments`، `notifications`، جداول أدوار ديناميكية، التكامل التفصيلي مع STARK، مدة الاحتفاظ بالبيانات وطلبات الحذف.
 
-## أسئلة مفتوحة للمدير
+## الخطوة التالية
 
-1. هل يمكن للمستخدم الانتماء لأكثر من شركة؟ (المقترح: نعم عبر `memberships`).
-2. هل التحقق من البريد شرط لبدء التجربة؟
-3. قاعدة منع إساءة التجربة: تجربة واحدة لكل (شركة + نظام) فقط، أم أيضًا لكل بريد/مالك؟
-4. سياسة تغيير الباقة: تسري على الاشتراكات الحالية أم الجديدة فقط؟ (المقترح: الجديدة فقط، والترقية بقرار صريح).
-5. سياسة الاحتفاظ بالبيانات والحذف بعد إغلاق الشركة (المدة والمتطلبات القانونية).
-6. هل لدى STARK نموذج شركات/مستخدمين خاص به؟ وهل يُربط بـ AXOR عبر معرّف الشركة أم عبر تكامل API؟ (ينتظر مراجعة STARK).
-
-## الخطوة التالية بعد الاعتماد
-
-تحويل المخطط إلى ملفات Drizzle في `backend/src/database/schema/` (ملف لكل كيان) وأول migration حقيقية، وكتابة اختبارات عزل الشركات قبل أي endpoint يقرأ بياناتها.
+ترجمة المخطط إلى ملفات Drizzle في `backend/src/database/schema/` (ملف لكل كيان) وأول migration حقيقية مع اختبارات قيود قاعدة البيانات، ثم اختبارات عزل الشركات قبل أي endpoint يقرأ بياناتها.
