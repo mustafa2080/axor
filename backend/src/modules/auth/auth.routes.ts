@@ -34,6 +34,12 @@ const registerBody = z.strictObject({
   password: z.string().min(1).max(256),
 });
 
+// The new password's rules are enforced by the service policy; here only sane size limits.
+const changePasswordBody = z.strictObject({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(1).max(256),
+});
+
 const COOKIE_PATH = '/api/v1/auth';
 
 function publicUser({ principal, email }: AuthenticatedUser) {
@@ -131,6 +137,19 @@ export function authRoutes(auth: AuthService, env: Env) {
       if (token !== undefined && token !== '') await auth.logout(token, contextOf(request));
       void reply.clearCookie(cookieName, cookieOptions);
       return reply.code(204).send();
+    });
+
+    // Revokes every other session and returns a fresh one for this device (ADR-0004 §14).
+    app.post('/auth/change-password', { preHandler: authenticate }, async (request, reply) => {
+      requireTrustedOrigin(request);
+      if (request.auth === undefined) throw unauthorized();
+      const body = parseInput(changePasswordBody, request.body);
+      const session = await auth.changePassword(
+        request.auth.principal.userId,
+        body,
+        contextOf(request),
+      );
+      return sendSession(reply, session);
     });
 
     app.get('/auth/me', { preHandler: authenticate }, async (request) => {

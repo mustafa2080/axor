@@ -18,6 +18,11 @@ export const users = mysqlTable(
     tenantRole: varchar('tenant_role', { length: 20 }).$type<TenantRole>(),
     platformRole: varchar('platform_role', { length: 20 }).$type<PlatformRole>(),
     emailVerifiedAt: dateTime('email_verified_at'),
+    /**
+     * Set whenever the password changes. Access tokens issued before it are rejected, so a
+     * password change signs out every other device immediately instead of after the token expires.
+     */
+    passwordChangedAt: dateTime('password_changed_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

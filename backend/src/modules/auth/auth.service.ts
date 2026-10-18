@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { AppError, conflict, tooManyRequests, unauthorized } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../../database/client.js';
@@ -9,7 +9,8 @@ import {
 } from '../../database/repositories/auth-audit-logs.repository.js';
 import { createRefreshSessionsRepository } from '../../database/repositories/refresh-sessions.repository.js';
 import { TenantAuditLogsRepository } from '../../database/repositories/tenant-audit-logs.repository.js';
-import { tenants, users } from '../../database/schema/index.js';
+import { retryOnDeadlock } from '../../database/retry.js';
+import { refreshSessions, tenants, users } from '../../database/schema/index.js';
 import type { Principal } from '../authz/principal.js';
 import { requireTenantScope } from '../authz/tenant-scope.js';
 import type { AccessTokenService } from './access-token.js';
@@ -151,6 +152,10 @@ export function createAuthService(deps: AuthServiceDeps) {
     maxFailures: 5,
     windowMs: REGISTRATION_WINDOW_MS,
   });
+
+  // Wrong "current password" answers on the change-password endpoint: 5 per user per 15 minutes,
+  // so a stolen access token cannot be used to guess the password (ADR-0004 §14).
+  const changePasswordFailures = createFailureThrottle({ maxFailures: 5, windowMs: WINDOW_MS });
 
   async function loadUser(where: ReturnType<typeof eq>): Promise<LoadedUser | null> {
     const [row] = await db
@@ -311,6 +316,79 @@ export function createAuthService(deps: AuthServiceDeps) {
       return openSession(loaded, ctx);
     },
 
+    /**
+     * Changes the password of an already authenticated user (ADR-0004 §14). Needs the current
+     * password. In ONE transaction it stores the new hash, stamps `password_changed_at` and revokes
+     * every refresh session; access tokens issued before the stamp are rejected by `authenticate`.
+     * The caller gets a brand-new session so the device that made the change stays signed in.
+     */
+    async changePassword(
+      userId: string,
+      input: { currentPassword: string; newPassword: string },
+      ctx: AuthContext,
+    ): Promise<SessionTokens> {
+      const wait = changePasswordFailures.retryAfterSeconds(userId);
+      if (wait > 0) throw tooManyRequests(wait);
+
+      const loaded = await loadUser(eq(users.id, userId));
+      if (loaded === null || !mayAuthenticate(loaded)) throw invalidSession();
+      const { user } = loaded;
+
+      const currentOk = await verifyPassword(user.passwordHash, input.currentPassword);
+      if (!currentOk) {
+        changePasswordFailures.recordFailure(userId);
+        await recordAudit(
+          {
+            action: 'auth.password_change_failed',
+            userId,
+            tenantId: user.tenantId,
+            metadata: { reason: 'invalid_current_password' },
+          },
+          ctx,
+          { wait: true },
+        );
+        throw new AppError(400, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect');
+      }
+
+      const issues = checkPasswordPolicy(input.newPassword, { email: user.email });
+      const problems = issues.map((issue) => ({
+        path: 'newPassword',
+        message: PASSWORD_ISSUE_MESSAGES[issue],
+      }));
+      if (input.newPassword.normalize('NFKC') === input.currentPassword.normalize('NFKC')) {
+        problems.push({ path: 'newPassword', message: 'New password must differ from the current one' });
+      }
+      if (problems.length > 0) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', problems);
+      }
+
+      const newHash = await hashPassword(input.newPassword);
+      const changedAt = now();
+      // A concurrent refresh locks the same session rows; retry if InnoDB picks us as the victim.
+      await retryOnDeadlock<void>(() =>
+        db.transaction(async (tx) => {
+          await tx
+            .update(users)
+            .set({ passwordHash: newHash, passwordChangedAt: changedAt })
+            .where(eq(users.id, userId));
+          await tx
+            .update(refreshSessions)
+            .set({ revokedAt: changedAt })
+            .where(and(eq(refreshSessions.userId, userId), isNull(refreshSessions.revokedAt)));
+        }),
+      );
+      changePasswordFailures.reset(userId);
+
+      await recordAudit(
+        { action: 'auth.password_changed', userId, tenantId: user.tenantId },
+        ctx,
+        { wait: true },
+      );
+      const updated = await loadUser(eq(users.id, userId));
+      if (updated === null) throw invalidSession();
+      return openSession(updated, ctx);
+    },
+
     async refresh(token: string, ctx: AuthContext): Promise<SessionTokens> {
       const next = generateRefreshToken();
       const expiresAt = refreshExpiry();
@@ -374,6 +452,15 @@ export function createAuthService(deps: AuthServiceDeps) {
       const loaded = await loadUser(eq(users.id, verified.userId));
       const principal = loaded === null ? null : toPrincipal(loaded.user);
       if (loaded === null || principal === null || !mayAuthenticate(loaded)) {
+        throw unauthorized('Invalid or expired token');
+      }
+      // A password change signs out every token issued before it (compared in whole seconds,
+      // because JWT `iat` has no sub-second precision). Tokens minted by the change itself pass.
+      const changedAt = loaded.user.passwordChangedAt;
+      if (
+        changedAt !== null &&
+        Math.floor(verified.issuedAt.getTime() / 1000) < Math.floor(changedAt.getTime() / 1000)
+      ) {
         throw unauthorized('Invalid or expired token');
       }
       return { principal, email: loaded.user.email };

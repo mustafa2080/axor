@@ -16,6 +16,7 @@ export interface AccessTokenConfig {
 export interface VerifiedAccessToken {
   userId: string;
   tokenId: string;
+  issuedAt: Date;
   expiresAt: Date;
 }
 
@@ -73,6 +74,7 @@ export function createAccessTokenService(config: AccessTokenConfig) {
         return {
           userId: payload.sub,
           tokenId: payload.jti,
+          issuedAt: new Date((payload.iat ?? 0) * 1000),
           expiresAt: new Date((payload.exp ?? 0) * 1000),
         };
       } catch {

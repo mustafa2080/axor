@@ -28,10 +28,11 @@ AXOR محتاجة تسجيل دخول بالبريد وكلمة المرور، �
     - الـ logout بيتسجل مرة واحدة بس لجلسة حية؛ تكراره أو استخدام token قديم أو مجهول بيرجع 204 من غير سجل جديد.
 12. **CORS وHelmet:** CORS مسموح لـ `WEB_ORIGIN` فقط بمطابقة تامة (من غير wildcard أو regex أو عكس أي origin)، مع `credentials`، والـ methods `GET/HEAD/POST/PUT/PATCH/DELETE`، والـ headers `content-type` و`authorization` و`x-request-id`، ويكشف `x-request-id` و`retry-after` للواجهة. Helmet على كل الردود (حتى 404 والأخطاء): CSP بتمنع كل شيء (`default-src 'none'` و`frame-ancestors 'none'` و`base-uri` و`form-action`)، و`Referrer-Policy: no-referrer`، و`Cross-Origin-Resource-Policy: same-site`، وHSTS في الإنتاج فقط (سنة مع `includeSubDomains`) عشان ما نثبّت مضيف تطوير. فحص `Origin` في §5 لسه هو حماية CSRF، وCORS مش بديل عنه.
 13. **Deadlock في تدوير الـ refresh:** طلبين بنفس الـ token كانوا بيتعرضوا أحياناً (حوالي 7% في اختبار ضغط) لـ InnoDB deadlock فيرجع 500. دلوقتي `rotate` بيعيد الـ transaction (حد أقصى 4 محاولات) عند errno 1213، فالخاسر بيشوف نتيجة الفائز ويتعامل معاه كإعادة استخدام (401) مش 500. النتيجة بتفضل: واحد ينجح والتاني يفشل.
+14. **تغيير كلمة المرور:** `POST /auth/change-password` (محتاج access token + فحص `Origin`، وbody صارم: `currentPassword` و`newPassword`). لازم كلمة المرور الحالية صح، والجديدة تعدي سياسة كلمة المرور (وما تساويش الحالية). في transaction واحدة: بيتخزن الـ hash الجديد، وعمود `users.password_changed_at` بياخد وقت التغيير، وكل الـ refresh sessions للمستخدم بتتلغي. الـ access tokens اللي اتصدرت قبل `password_changed_at` بيرفضها `authenticate` بنفس الـ 401 العام (المقارنة بالثواني لأن `iat` مفيهوش أجزاء من الثانية، فـ token اتصدر في نفس ثانية التغيير قبله بتفضل صالحة لحد 15 دقيقة كحد أقصى، لكن مفيش refresh لها). الجهاز اللي غيّر الكلمة بياخد session جديدة (family جديدة + cookie جديدة) فيفضل مسجّل دخول. الغلط في "الحالية" بيرجع 400 `INVALID_CURRENT_PASSWORD` (مش 401 عشان الواجهة ما تفتكرش إن الجلسة انتهت) وبيتحسب: 5 محاولات لكل مستخدم كل 15 دقيقة ثم 429 (في الذاكرة، نفس حدود البند 6). الأحداث `auth.password_changed` و`auth.password_change_failed` بتتسجل في `audit_logs` من غير أي كلمة سر. الـ transaction بتعيد المحاولة عند deadlock مع refresh متزامن.
 
 ## خارج النطاق الحالي (بنود لاحقة)
 
-استعادة كلمة المرور، التحقق من البريد، MFA للإدارة، إبطال كل جلسات المستخدم عند تغيير كلمة المرور، بدء التجربة عند التسجيل (بعد كتالوج الباقات).
+استعادة كلمة المرور (هتستخدم نفس إبطال الجلسات)، التحقق من البريد، MFA للإدارة، إنهاء كل الجلسات يدوياً من الإدارة عند الاشتباه باختراق، بدء التجربة عند التسجيل (بعد كتالوج الباقات).
 
 ## البدائل اللي اتستبعدت
 
