@@ -142,7 +142,7 @@ axor/
 
 - [x] إنشاء الهيكل الأساسي للمستودع وفصل `apps/web` عن `apps/api`. — *2026-10-18: تم باسمي `frontend/` و`backend/` بدل `apps/*` (انظر ADR-0001)؛ أُنشئت `docs/` و`infra/` و`packages/` و`.github/workflows/`.*
 - [x] إنشاء `pnpm-workspace.yaml` وتعريف workspaces المطلوبة. — *تحقق: `pnpm -r list` يعرض `axor` و`frontend`.*
-- [ ] تثبيت إصدارات الحزم عبر `pnpm-lock.yaml` والالتزام باستخدام `pnpm` في التثبيت والبناء وCI. — *2026-10-18: كُتب `.github/workflows/ci.yml` (typecheck + lint + test + build مع MariaDB service، وaudit للاعتماديات)؛ اتحقق محلياً من صحة YAML و`pnpm install --frozen-lockfile` و`pnpm audit --prod` (0 ثغرات). لم يُعلَّم `[x]` لأنه لم يُشغَّل على GitHub بعد.*
+- [x] تثبيت إصدارات الحزم عبر `pnpm-lock.yaml` والالتزام باستخدام `pnpm` في التثبيت والبناء وCI. — *2026-10-18: كُتب `.github/workflows/ci.yml` (typecheck + lint + test + build مع MariaDB service، وaudit للاعتماديات)؛ اتحقق محلياً من صحة YAML و`pnpm install --frozen-lockfile` و`pnpm audit --prod` (0 ثغرات). تحقق: run #1 على GitHub (commit 017e53e) انتهى بنجاح، jobs: check + audit.*
 - [x] إعداد TypeScript في الفرونت والباك مع قواعد صارمة مناسبة للمشروع. — *تحقق: `strict` مفعّل في الاثنين (والخادم أيضًا `noUncheckedIndexedAccess` و`exactOptionalPropertyTypes`)، و`pnpm typecheck` ناجح.*
 - [ ] إعداد ESLint وPrettier وملفات إعداد مشتركة.
 - [x] إعداد ملفات `.env.example` دون أسرار فعلية، وتحديث `.gitignore`. — *2026-10-18: `git init` + `git check-ignore`: `.env` و`node_modules` و`dist` متجاهَلين، و`.env.example` بدون أسرار ومتتبَّع.*
@@ -437,7 +437,7 @@ axor/
 - [ ] إعداد React وNode.js وTypeScript وأدوات الجودة.
 - [ ] إعداد قاعدة البيانات وmigrations والاختبارات.
 - [ ] إعداد logging وerror handling وvalidation.
-- [ ] إعداد CI وبيئات التطوير والاختبار. — *2026-10-18: كُتب `.github/workflows/ci.yml` (typecheck + lint + test + build مع MariaDB service، وaudit للاعتماديات)؛ اتحقق محلياً من صحة YAML و`pnpm install --frozen-lockfile` و`pnpm audit --prod` (0 ثغرات). لم يُعلَّم `[x]` لأنه لم يُشغَّل على GitHub بعد.*
+- [x] إعداد CI وبيئات التطوير والاختبار. — *2026-10-18: كُتب `.github/workflows/ci.yml` (typecheck + lint + test + build مع MariaDB service، وaudit للاعتماديات)؛ اتحقق محلياً من صحة YAML و`pnpm install --frozen-lockfile` و`pnpm audit --prod` (0 ثغرات). تحقق: run #1 على GitHub (commit 017e53e) انتهى بنجاح، jobs: check + audit.*
 
 ### المرحلة C — الحسابات والشركات
 - [ ] تنفيذ التسجيل والدخول والجلسات الآمنة.
@@ -538,7 +538,7 @@ axor/
 | 2026-10-18 — ADR-0002 (Fastify + Zod + Drizzle + MariaDB) + هيكل الخادم الأولي (config بـ Zod، `/api/v1/health`، معالج أخطاء موحد، 5 اختبارات) | [x] | تحقق: `pnpm check` ناجح من الجذر، وتشغيل فعلي للخادم والرد على `/api/v1/health`. لم يُربط بقاعدة البيانات بعد |
 | 2026-10-18 — ربط Drizzle بـ MariaDB (pool + ping)، أول migration (`0000_baseline`)، readiness check، اختبارات تكامل على `axor_test` (11 اختبار) | [x] | الدليل: `pnpm db:migrate` اتطبق على `axor_dev`، و`pnpm check` نجح، والخادم الفعلي رد على `/health` و`/health/ready`. مفيش جداول أعمال لسه (المخطط محتاج اعتماد المدير) |
 | 2026-10-18 — توحيد شكل الاستجابات (`ok()`)، و`git init` مع التحقق من `.gitignore` | [x] | الدليل: `git check-ignore` أكد تجاهل `.env`، واختبارات `ok()` ناجحة |
-| 2026-10-18 — إعداد CI (GitHub Actions: check + audit مع MariaDB service) | [ ] | مكتوب ومتحقق محلياً (YAML، frozen-lockfile، audit نظيف). يتعلّم [x] بعد أول تشغيل ناجح على GitHub (محتاج remote ومستودع) |
+| 2026-10-18 — إعداد CI (GitHub Actions: check + audit مع MariaDB service) + رفع المستودع على GitHub (`mustafa2080/axor`) | [x] | الدليل: run #1 نجح على commit 017e53e |
 
 ---
 
