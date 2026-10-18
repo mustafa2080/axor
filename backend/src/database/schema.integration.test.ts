@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { normalizeEmailKey } from '../common/email.js';
 import { uuidv7 } from '../common/id.js';
 import { loadEnv } from '../config/env.js';
+import { DOMAIN_TABLES, truncateDomainTables } from '../test/db-helpers.js';
 import { createDatabase } from './client.js';
 import { runMigrations } from './migrate.js';
 import * as schema from './schema/index.js';
@@ -31,20 +32,6 @@ async function expectMysqlError(promise: Promise<unknown>, errno: number): Promi
   const actual = cause?.errno ?? (error as { errno?: number }).errno;
   expect(actual).toBe(errno);
 }
-
-const DOMAIN_TABLES = [
-  'audit_logs',
-  'trial_claims',
-  'subscription_events',
-  'subscriptions',
-  'refresh_sessions',
-  'users',
-  'plan_versions',
-  'plans',
-  'business_activities',
-  'products',
-  'tenants',
-] as const;
 
 /** Runs a SELECT and returns its rows (drizzle types `execute` as a write result). */
 async function selectRows<T>(statement: ReturnType<typeof sql>): Promise<T[]> {
@@ -76,11 +63,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-  for (const table of DOMAIN_TABLES) {
-    await db.execute(sql.raw(`TRUNCATE TABLE \`${table}\``));
-  }
-  await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+  await truncateDomainTables(db);
 });
 
 afterAll(async () => {
