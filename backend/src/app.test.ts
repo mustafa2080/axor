@@ -3,7 +3,8 @@ import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
 
 const testUrl = 'mysql://user:pass@127.0.0.1:3306/axor_test';
-const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: testUrl });
+const testSecret = 'unit-test-secret-that-is-long-enough-123456';
+const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret });
 
 const healthyDeps = { checkDatabase: async () => {} };
 
@@ -57,17 +58,35 @@ describe('app', () => {
 
 describe('loadEnv', () => {
   it('applies safe defaults', () => {
-    const parsed = loadEnv({ DATABASE_URL: testUrl });
+    const parsed = loadEnv({ DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret });
     expect(parsed.API_HOST).toBe('127.0.0.1');
     expect(parsed.API_PORT).toBe(4000);
+    expect(parsed.TRUST_PROXY).toBe(false);
+    expect(parsed.ACCESS_TOKEN_TTL_SECONDS).toBe(900);
+    expect(parsed.REFRESH_TOKEN_TTL_DAYS).toBe(30);
+  });
+
+  it('rejects a missing, short or placeholder JWT_ACCESS_SECRET (fail fast)', () => {
+    expect(() => loadEnv({ DATABASE_URL: testUrl })).toThrow();
+    expect(() => loadEnv({ DATABASE_URL: testUrl, JWT_ACCESS_SECRET: 'short' })).toThrow();
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: testUrl,
+        JWT_ACCESS_SECRET: 'CHANGE_ME_this_placeholder_is_long_enough_but_not_allowed',
+      }),
+    ).toThrow();
   });
 
   it('rejects an invalid port (fail fast)', () => {
-    expect(() => loadEnv({ API_PORT: '99999', DATABASE_URL: testUrl })).toThrow();
+    expect(() =>
+      loadEnv({ API_PORT: '99999', DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret }),
+    ).toThrow();
   });
 
   it('rejects a missing or non-mysql DATABASE_URL (fail fast)', () => {
     expect(() => loadEnv({})).toThrow();
-    expect(() => loadEnv({ DATABASE_URL: 'postgres://u:p@127.0.0.1/db' })).toThrow();
+    expect(() =>
+      loadEnv({ DATABASE_URL: 'postgres://u:p@127.0.0.1/db', JWT_ACCESS_SECRET: testSecret }),
+    ).toThrow();
   });
 });

@@ -25,3 +25,8 @@ export const forbidden = (message = 'Access denied') => new AppError(403, 'FORBI
 export const notFound = (message = 'Resource not found') =>
   new AppError(404, 'NOT_FOUND', message);
 export const conflict = (message: string) => new AppError(409, 'CONFLICT', message);
+/** `retryAfterSeconds` is turned into a Retry-After header by the global error handler. */
+export const tooManyRequests = (retryAfterSeconds: number) =>
+  new AppError(429, 'TOO_MANY_REQUESTS', 'Too many attempts. Try again later.', {
+    retryAfterSeconds,
+  });

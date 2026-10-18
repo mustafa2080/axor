@@ -9,6 +9,7 @@ import { parseInput } from './common/validation.js';
 const env = loadEnv({
   NODE_ENV: 'test',
   DATABASE_URL: 'mysql://user:pass@127.0.0.1:3306/axor_test',
+  JWT_ACCESS_SECRET: 'unit-test-secret-that-is-long-enough-123456',
 });
 const deps = { checkDatabase: async () => {} };
 

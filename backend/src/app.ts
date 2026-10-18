@@ -6,8 +6,13 @@ import type { Env } from './config/env.js';
 import { AppError } from './common/errors.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthDeps } from './modules/health/health.routes.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
+import type { AuthService } from './modules/auth/auth.service.js';
 
-export type AppDeps = HealthDeps;
+export type AppDeps = HealthDeps & {
+  /** Optional so that tests of unrelated parts do not need a database. */
+  auth?: AuthService;
+};
 
 export interface AppOptions {
   /** Test hook: capture log output instead of writing to stdout. */
@@ -53,6 +58,7 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
 
   const app = Fastify({
     logger,
+    trustProxy: env.TRUST_PROXY,
     bodyLimit: 1_048_576,
     // Accept a well-formed incoming id (for tracing across services); otherwise generate one.
     // Anything else is ignored so clients cannot inject arbitrary text into the logs.
@@ -76,6 +82,11 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   // Unified error shape. Never expose stack traces or internal details.
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof AppError && error.statusCode < 500) {
+      const retryAfter = (error.details as { retryAfterSeconds?: unknown } | undefined)
+        ?.retryAfterSeconds;
+      if (error.statusCode === 429 && typeof retryAfter === 'number') {
+        void reply.header('retry-after', String(retryAfter));
+      }
       void reply.code(error.statusCode).send({
         error: {
           code: error.code,
@@ -106,6 +117,9 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   });
 
   void app.register(healthRoutes(deps), { prefix: '/api/v1' });
+  if (deps.auth !== undefined) {
+    void app.register(authRoutes(deps.auth, env), { prefix: '/api/v1' });
+  }
 
   return app;
 }

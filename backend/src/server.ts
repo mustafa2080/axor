@@ -1,10 +1,23 @@
 import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { createDatabase } from './database/client.js';
+import { createAccessTokenService } from './modules/auth/access-token.js';
+import { createAuthService } from './modules/auth/auth.service.js';
 
 const env = loadEnv();
 const database = createDatabase(env.DATABASE_URL);
-const app = buildApp(env, { checkDatabase: () => database.ping() });
+const accessTokens = createAccessTokenService({
+  secret: env.JWT_ACCESS_SECRET,
+  ttlSeconds: env.ACCESS_TOKEN_TTL_SECONDS,
+  issuer: 'axor-api',
+  audience: 'axor-web',
+});
+const auth = createAuthService({
+  db: database.db,
+  accessTokens,
+  refreshTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
+});
+const app = buildApp(env, { checkDatabase: () => database.ping(), auth });
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');

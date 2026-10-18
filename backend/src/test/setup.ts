@@ -8,6 +8,8 @@ if (existsSync(rootEnv)) {
 }
 
 process.env['NODE_ENV'] = 'test';
+// Tests never use the developer's real secret.
+process.env['JWT_ACCESS_SECRET'] = 'test-only-access-secret-not-used-anywhere-else-0123456789';
 
 const url = process.env['DATABASE_URL'];
 if (url !== undefined && url !== '') {
