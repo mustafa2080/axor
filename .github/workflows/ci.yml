@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     name: typecheck, lint, test, build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     # Throwaway database for integration tests. These values only exist inside the CI job
@@ -58,7 +58,7 @@ jobs:
 
   audit:
     name: dependency audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
