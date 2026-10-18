@@ -4,6 +4,7 @@ import { buildApp } from '../../app.js';
 import { uuidv7 } from '../../common/id.js';
 import { loadEnv } from '../../config/env.js';
 import { createDatabase } from '../../database/client.js';
+import type { AuthAuditLogsRepository } from '../../database/repositories/auth-audit-logs.repository.js';
 import { runMigrations } from '../../database/migrate.js';
 import * as schema from '../../database/schema/index.js';
 import { truncateDomainTables } from '../../test/db-helpers.js';
@@ -24,16 +25,23 @@ const COOKIE = 'axor_rt';
 
 let passwordHash: string;
 let app: ReturnType<typeof buildApp>;
+let authService: ReturnType<typeof createAuthService> | undefined;
 let tenantId: string;
 
-function newApp(appEnv = env) {
+function newApp(appEnv = env, audit?: AuthAuditLogsRepository) {
   const accessTokens = createAccessTokenService({
     secret: appEnv.JWT_ACCESS_SECRET,
     ttlSeconds: appEnv.ACCESS_TOKEN_TTL_SECONDS,
     issuer: 'axor-api',
     audience: 'axor-web',
   });
-  const auth = createAuthService({ db, accessTokens, refreshTtlDays: appEnv.REFRESH_TOKEN_TTL_DAYS });
+  const auth = createAuthService({
+    db,
+    accessTokens,
+    refreshTtlDays: appEnv.REFRESH_TOKEN_TTL_DAYS,
+    ...(audit !== undefined && { audit }),
+  });
+  authService = auth;
   return buildApp(appEnv, { checkDatabase: () => database.ping(), auth });
 }
 
@@ -113,6 +121,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // Background audit writes from the previous test must land before the tables are wiped.
+  await authService?.drain();
   await truncateDomainTables(db);
   await seedUsers();
   // Fresh app per test: the throttles and rate limiter live in memory.
@@ -121,6 +131,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await authService?.drain();
   await database.close();
 });
 
@@ -382,6 +393,163 @@ describe('brute-force protection', () => {
     }
     expect(codes.slice(0, 30).every((c) => c === 401)).toBe(true);
     expect(codes[30]).toBe(429);
+  });
+});
+
+describe('audit trail of authentication events', () => {
+  const auditRows = async () => {
+    await authService?.drain();
+    return db.select().from(schema.auditLogs).orderBy(schema.auditLogs.id);
+  };
+  const idOf = async (email: string) => {
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.email, email));
+    return row?.id as string;
+  };
+  const logoutWith = (token: string) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: { origin: ORIGIN, cookie: `${COOKIE}=${token}` },
+    });
+
+  it('records a successful login with the caller, the company and the request id, and no secrets', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { origin: ORIGIN, 'user-agent': 'audit-test/1.0', 'x-request-id': 'audit-req-0001' },
+      payload: { email: 'owner@alpha.test', password: PASSWORD },
+    });
+    expect(res.statusCode).toBe(200);
+    const refreshToken = cookieOf(res) as string;
+    const accessToken = res.json<{ data: { accessToken: string } }>().data.accessToken;
+
+    const rows = await auditRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: 'auth.login',
+      tenantId,
+      actorUserId: await idOf('owner@alpha.test'),
+      targetType: 'user',
+      requestId: 'audit-req-0001',
+    });
+    const metadata = rows[0]?.metadata as { ip?: unknown; userAgent?: unknown };
+    expect(metadata).toMatchObject({ userAgent: 'audit-test/1.0' });
+    expect(typeof metadata.ip).toBe('string');
+
+    const dump = JSON.stringify(rows);
+    for (const secret of [PASSWORD, refreshToken, hashRefreshToken(refreshToken), accessToken, passwordHash]) {
+      expect(dump).not.toContain(secret);
+    }
+  });
+
+  it('records platform staff logins without a company', async () => {
+    await loggedIn('staff@axor.test');
+    const rows = await auditRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: 'auth.login',
+      tenantId: null,
+      actorUserId: await idOf('staff@axor.test'),
+    });
+  });
+
+  it('records failed logins of known accounts with the reason, but the client sees the same 401', async () => {
+    const attempts = [
+      ['owner@alpha.test', 'wrong password entirely'],
+      ['disabled@alpha.test', PASSWORD],
+      ['frozen@frozen.test', PASSWORD],
+    ] as const;
+    const bodies = new Set<string>();
+    for (const [email, password] of attempts) {
+      const res = await login(email, password);
+      expect(res.statusCode).toBe(401);
+      bodies.add(res.body);
+    }
+    expect(bodies.size).toBe(1);
+
+    const rows = await auditRows();
+    expect(rows.map((r) => r.action)).toEqual(Array(3).fill('auth.login_failed'));
+    const reasons = rows.map((r) => (r.metadata as { reason: string }).reason).sort();
+    expect(reasons).toEqual(['invalid_password', 'tenant_inactive', 'user_disabled']);
+    expect(JSON.stringify(rows)).not.toContain('wrong password entirely');
+    expect(JSON.stringify(rows)).not.toContain(PASSWORD);
+  });
+
+  it('writes nothing for an unknown email (nothing to attribute it to, no table growth by guessing)', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      expect((await login(`ghost${i}@alpha.test`, 'whatever password')).statusCode).toBe(401);
+    }
+    expect(await auditRows()).toHaveLength(0);
+  });
+
+  it('stops writing once the throttle blocks the caller', async () => {
+    for (let i = 0; i < 5; i += 1) await login('owner@alpha.test', `wrong password number ${i}`);
+    expect((await login('owner@alpha.test')).statusCode).toBe(429);
+    expect((await login('owner@alpha.test')).statusCode).toBe(429);
+    expect(await auditRows()).toHaveLength(5);
+  });
+
+  it('records refresh-token theft detection with the family that was revoked', async () => {
+    const first = await loggedIn();
+    await refresh(first.refreshToken);
+    expect((await refresh(first.refreshToken)).statusCode).toBe(401);
+
+    const rows = (await auditRows()).filter((r) => r.action === 'auth.refresh_reuse_detected');
+    expect(rows).toHaveLength(1);
+    const [session] = await db.select().from(schema.refreshSessions).limit(1);
+    expect(rows[0]).toMatchObject({ tenantId, actorUserId: await idOf('owner@alpha.test') });
+    expect(rows[0]?.metadata).toMatchObject({ familyId: session?.familyId });
+  });
+
+  it('records a real logout once, and nothing for repeated, stale or unknown tokens', async () => {
+    const first = await loggedIn();
+    const rotated = cookieOf(await refresh(first.refreshToken)) as string;
+
+    // The current token is a real sign-out: one record.
+    expect((await logoutWith(rotated)).statusCode).toBe(204);
+    // Repeating it, using the retired token of the same (now revoked) family, or an unknown
+    // token is still a 204 but not another sign-out.
+    expect((await logoutWith(rotated)).statusCode).toBe(204);
+    expect((await logoutWith(first.refreshToken)).statusCode).toBe(204);
+    expect((await logoutWith('z'.repeat(43))).statusCode).toBe(204);
+
+    const logouts = (await auditRows()).filter((r) => r.action === 'auth.logout');
+    expect(logouts).toHaveLength(1);
+    expect(logouts[0]).toMatchObject({ tenantId, actorUserId: await idOf('owner@alpha.test') });
+  });
+
+  it('never blocks or fails authentication when the audit store is broken', async () => {
+    const broken: AuthAuditLogsRepository = {
+      record: async () => {
+        throw new Error('audit store is down');
+      },
+    };
+    app = newApp(env, broken);
+    await app.ready();
+
+    const { accessToken, refreshToken } = await loggedIn();
+    expect((await me(accessToken)).statusCode).toBe(200);
+    expect((await refresh(refreshToken)).statusCode).toBe(200);
+    expect((await login('owner@alpha.test', 'wrong password entirely')).statusCode).toBe(401);
+    expect((await logoutWith(refreshToken)).statusCode).toBe(204);
+    await authService?.drain();
+  });
+});
+
+describe('CORS on the real auth endpoints', () => {
+  it('lets the web origin read the login response, including the Retry-After header it must see', async () => {
+    const res = await login('owner@alpha.test');
+    expect(res.statusCode).toBe(200);
+    // The helper sends Origin: ORIGIN, so the browser would be allowed to read this response.
+    expect(res.headers['access-control-allow-origin']).toBe(ORIGIN);
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
+    expect(String(res.headers['access-control-expose-headers'])).toContain('retry-after');
+  });
+
+  it('a foreign origin gets 403 and no CORS grant', async () => {
+    const res = await login('owner@alpha.test', PASSWORD, 'https://evil.example');
+    expect(res.statusCode).toBe(403);
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 });
 

@@ -128,7 +128,7 @@ export function authRoutes(auth: AuthService, env: Env) {
     app.post('/auth/logout', async (request, reply) => {
       requireTrustedOrigin(request);
       const token = request.cookies[cookieName];
-      if (token !== undefined && token !== '') await auth.logout(token);
+      if (token !== undefined && token !== '') await auth.logout(token, contextOf(request));
       void reply.clearCookie(cookieName, cookieOptions);
       return reply.code(204).send();
     });

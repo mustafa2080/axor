@@ -56,6 +56,98 @@ describe('app', () => {
   });
 });
 
+describe('browser security: Helmet and CORS', () => {
+  const webOrigin = new URL(env.WEB_ORIGIN).origin;
+
+  it('sends security headers on success, 404 and 500 responses alike', async () => {
+    const app = buildApp(env, healthyDeps);
+    app.get('/boom', async () => {
+      throw new Error('internal detail');
+    });
+    for (const [url, status] of [
+      ['/api/v1/health', 200],
+      ['/nope', 404],
+      ['/boom', 500],
+    ] as const) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode).toBe(status);
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['referrer-policy']).toBe('no-referrer');
+      expect(res.headers['cross-origin-resource-policy']).toBe('same-site');
+      expect(res.headers['x-powered-by']).toBeUndefined();
+      const csp = String(res.headers['content-security-policy']);
+      expect(csp).toContain("default-src 'none'");
+      expect(csp).toContain("frame-ancestors 'none'");
+    }
+  });
+
+  it('enables HSTS only in production', async () => {
+    const dev = await buildApp(env, healthyDeps).inject({ method: 'GET', url: '/api/v1/health' });
+    expect(dev.headers['strict-transport-security']).toBeUndefined();
+
+    const prodEnv = loadEnv({
+      NODE_ENV: 'production',
+      LOG_LEVEL: 'silent',
+      DATABASE_URL: testUrl,
+      JWT_ACCESS_SECRET: testSecret,
+    });
+    const prod = await buildApp(prodEnv, healthyDeps).inject({
+      method: 'GET',
+      url: '/api/v1/health',
+    });
+    expect(String(prod.headers['strict-transport-security'])).toContain('max-age=31536000');
+  });
+
+  it('lets only the configured web origin read responses, with credentials', async () => {
+    const app = buildApp(env, healthyDeps);
+    const allowed = await app.inject({
+      method: 'GET',
+      url: '/api/v1/health',
+      headers: { origin: webOrigin },
+    });
+    expect(allowed.headers['access-control-allow-origin']).toBe(webOrigin);
+    expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+    expect(String(allowed.headers['access-control-expose-headers'])).toContain('x-request-id');
+    expect(String(allowed.headers['vary'])).toContain('Origin');
+
+    for (const foreign of ['https://evil.example', `${webOrigin}.evil.example`, 'null']) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/health',
+        headers: { origin: foreign },
+      });
+      // Without Access-Control-Allow-Origin the browser refuses to expose the response, whatever
+      // other CORS headers are present.
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    }
+  });
+
+  it('answers a preflight for the web origin and refuses everyone else', async () => {
+    const app = buildApp(env, healthyDeps);
+    const preflight = (origin: string) =>
+      app.inject({
+        method: 'OPTIONS',
+        url: '/api/v1/auth/login',
+        headers: {
+          origin,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type,authorization',
+        },
+      });
+
+    const ok = await preflight(webOrigin);
+    expect(ok.statusCode).toBe(204);
+    expect(ok.headers['access-control-allow-origin']).toBe(webOrigin);
+    expect(ok.headers['access-control-allow-credentials']).toBe('true');
+    expect(String(ok.headers['access-control-allow-methods'])).toContain('POST');
+    expect(String(ok.headers['access-control-allow-headers'])).toContain('authorization');
+    expect(Number(ok.headers['access-control-max-age'])).toBe(600);
+
+    const foreign = await preflight('https://evil.example');
+    expect(foreign.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});
+
 describe('loadEnv', () => {
   it('applies safe defaults', () => {
     const parsed = loadEnv({ DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret });

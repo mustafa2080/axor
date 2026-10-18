@@ -8,7 +8,7 @@ const MAX_PAGE_SIZE = 200;
 const FORBIDDEN_KEY = /pass(word)?|token|secret|authorization|cookie/i;
 
 /** Audit metadata must never carry credentials (ADR-0003 §3). Checked at any depth. */
-function assertSafeMetadata(value: unknown, path = 'metadata'): void {
+export function assertSafeMetadata(value: unknown, path = 'metadata'): void {
   if (value === null || typeof value !== 'object') {
     return;
   }

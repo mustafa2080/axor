@@ -22,6 +22,7 @@ const app = buildApp(env, { checkDatabase: () => database.ping(), auth });
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
   await app.close();
+  await auth.drain();
   await database.close();
   process.exit(0);
 }

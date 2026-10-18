@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Writable } from 'node:stream';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 import type { FastifyError, FastifyRequest } from 'fastify';
 import type { Env } from './config/env.js';
@@ -73,6 +75,36 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   app.addHook('onSend', async (request, reply, payload) => {
     void reply.header('x-request-id', request.id);
     return payload;
+  });
+
+  // Browsers may call this API only from the one configured web origin, with credentials
+  // (the refresh cookie). Exact match: no wildcard, no regex, never reflecting arbitrary origins.
+  void app.register(cors, {
+    origin: [new URL(env.WEB_ORIGIN).origin],
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['content-type', 'authorization', 'x-request-id'],
+    exposedHeaders: ['x-request-id', 'retry-after'],
+    maxAge: 600,
+  });
+
+  // Security headers on every response, including errors and 404s. This is a JSON API: no
+  // document it returns may load, embed or be embedded, so the CSP allows nothing at all.
+  void app.register(helmet, {
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    referrerPolicy: { policy: 'no-referrer' },
+    // HSTS only where HTTPS is guaranteed; never pin a local development host.
+    strictTransportSecurity:
+      env.NODE_ENV === 'production' ? { maxAge: 31_536_000, includeSubDomains: true } : false,
   });
 
   app.setNotFoundHandler((_request, reply) => {

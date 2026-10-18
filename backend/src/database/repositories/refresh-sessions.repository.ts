@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../client.js';
+import { retryOnDeadlock } from '../retry.js';
 import { refreshSessions } from '../schema/index.js';
 
 export type RotateResult =
@@ -42,7 +43,10 @@ export function createRefreshSessionsRepository(db: Database['db']) {
       next: Omit<NewSessionInput, 'userId' | 'familyId'>,
       now: Date,
     ): Promise<RotateResult> {
-      return db.transaction(async (tx) => {
+      // Two requests with the same token collide on the same rows; InnoDB may pick one as a
+      // deadlock victim. Retrying makes it see the winner's result (and be treated as reuse)
+      // instead of surfacing a 500.
+      return retryOnDeadlock<RotateResult>(() => db.transaction(async (tx) => {
         const [current] = await tx
           .select()
           .from(refreshSessions)
@@ -75,7 +79,7 @@ export function createRefreshSessionsRepository(db: Database['db']) {
           .set({ revokedAt: now, replacedById: nextId })
           .where(eq(refreshSessions.id, current.id));
         return { status: 'rotated', userId, familyId };
-      });
+      }));
     },
 
     async revokeFamily(familyId: string, now: Date): Promise<void> {
@@ -85,21 +89,32 @@ export function createRefreshSessionsRepository(db: Database['db']) {
         .where(and(eq(refreshSessions.familyId, familyId), isNull(refreshSessions.revokedAt)));
     },
 
-    /** Logout: revoke the whole family the presented token belongs to. Unknown tokens are ignored. */
-    async revokeFamilyByTokenHash(tokenHash: string, now: Date): Promise<void> {
+    /**
+     * Logout: revoke the whole family the presented token belongs to. Unknown tokens are ignored.
+     * Returns the owner only when the presented token was still live, so callers audit a real
+     * sign-out once and not every repeated or stale logout request.
+     */
+    async revokeFamilyByTokenHash(
+      tokenHash: string,
+      now: Date,
+    ): Promise<{ userId: string } | null> {
       const [session] = await db
-        .select({ familyId: refreshSessions.familyId })
+        .select({
+          familyId: refreshSessions.familyId,
+          userId: refreshSessions.userId,
+          revokedAt: refreshSessions.revokedAt,
+        })
         .from(refreshSessions)
         .where(eq(refreshSessions.tokenHash, tokenHash))
         .limit(1);
-      if (session !== undefined) {
-        await db
-          .update(refreshSessions)
-          .set({ revokedAt: now })
-          .where(
-            and(eq(refreshSessions.familyId, session.familyId), isNull(refreshSessions.revokedAt)),
-          );
-      }
+      if (session === undefined) return null;
+      await db
+        .update(refreshSessions)
+        .set({ revokedAt: now })
+        .where(
+          and(eq(refreshSessions.familyId, session.familyId), isNull(refreshSessions.revokedAt)),
+        );
+      return session.revokedAt === null ? { userId: session.userId } : null;
     },
 
     async revokeAllForUser(userId: string, now: Date): Promise<void> {

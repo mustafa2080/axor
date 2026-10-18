@@ -2,6 +2,11 @@ import { eq } from 'drizzle-orm';
 import { AppError, conflict, tooManyRequests, unauthorized } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../../database/client.js';
+import {
+  createAuthAuditLogsRepository,
+  type AuthAuditEvent,
+  type AuthAuditLogsRepository,
+} from '../../database/repositories/auth-audit-logs.repository.js';
 import { createRefreshSessionsRepository } from '../../database/repositories/refresh-sessions.repository.js';
 import { TenantAuditLogsRepository } from '../../database/repositories/tenant-audit-logs.repository.js';
 import { tenants, users } from '../../database/schema/index.js';
@@ -40,6 +45,8 @@ export interface AuthServiceDeps {
   db: Database['db'];
   accessTokens: AccessTokenService;
   refreshTtlDays: number;
+  /** Test hook: replace the audit writer (e.g. with one that fails). */
+  audit?: AuthAuditLogsRepository;
   /** Test hook. */
   clock?: () => Date;
 }
@@ -99,6 +106,43 @@ export function createAuthService(deps: AuthServiceDeps) {
   const { db, accessTokens } = deps;
   const now = deps.clock ?? (() => new Date());
   const sessions = createRefreshSessionsRepository(db);
+  const auditLogs = deps.audit ?? createAuthAuditLogsRepository(db);
+  // Audit writes that were deliberately not awaited (failed logins). See `recordAudit`.
+  const pendingAudits = new Set<Promise<void>>();
+
+  /**
+   * Writes an auth audit event. It never throws and never fails the request: a broken audit table
+   * must not lock people out (audit_logs has no FKs by design). Caller IP and user agent are added
+   * here; credentials never are (the repository rejects sensitive metadata keys).
+   */
+  function recordAudit(
+    event: Omit<AuthAuditEvent, 'requestId'>,
+    ctx: AuthContext,
+    options: { wait: boolean },
+  ): Promise<void> {
+    const write = auditLogs
+      .record({
+        ...event,
+        metadata: {
+          ip: ctx.ip,
+          ...(ctx.userAgent !== null && { userAgent: ctx.userAgent.slice(0, 255) }),
+          ...event.metadata,
+        },
+        ...(ctx.requestId !== undefined && { requestId: ctx.requestId }),
+      })
+      .catch(() => {
+        ctx.log.warn(
+          { event: 'audit_write_failed', action: event.action, userId: event.userId },
+          'could not record auth audit event',
+        );
+      });
+    if (options.wait) return write;
+    // Failed logins must take the same time whether or not the account exists, and an unknown
+    // account writes nothing. So the write for a known account runs in the background.
+    pendingAudits.add(write);
+    void write.finally(() => pendingAudits.delete(write));
+    return Promise.resolve();
+  }
   // 5 failures per (ip + email) and 30 per email across all IPs, per 15 minutes (ADR-0004 §6).
   const byIpAndEmail = createFailureThrottle({ maxFailures: 5, windowMs: WINDOW_MS });
   const byEmail = createFailureThrottle({ maxFailures: 30, windowMs: WINDOW_MS });
@@ -170,10 +214,37 @@ export function createAuthService(deps: AuthServiceDeps) {
       if (loaded === null || !passwordOk || !mayAuthenticate(loaded)) {
         byIpAndEmail.recordFailure(ipEmailKey);
         byEmail.recordFailure(emailKey);
+        if (loaded === null) {
+          // Nothing to attribute it to and nothing to write: the request log is the only record.
+          ctx.log.warn({ event: 'login_failed', knownAccount: false }, 'failed login');
+        } else {
+          // The reason is for administrators only; the client always gets the same 401.
+          const reason = !passwordOk
+            ? 'invalid_password'
+            : loaded.user.status !== 'active'
+              ? 'user_disabled'
+              : 'tenant_inactive';
+          await recordAudit(
+            {
+              action: 'auth.login_failed',
+              userId: loaded.user.id,
+              tenantId: loaded.user.tenantId,
+              metadata: { reason },
+            },
+            ctx,
+            { wait: false },
+          );
+        }
         throw invalidCredentials();
       }
       byIpAndEmail.reset(ipEmailKey);
-      return openSession(loaded, ctx);
+      const session = await openSession(loaded, ctx);
+      await recordAudit(
+        { action: 'auth.login', userId: loaded.user.id, tenantId: loaded.user.tenantId },
+        ctx,
+        { wait: true },
+      );
+      return session;
     },
 
     /**
@@ -254,6 +325,19 @@ export function createAuthService(deps: AuthServiceDeps) {
           { event: 'refresh_token_reuse', userId: result.userId, familyId: result.familyId },
           'refresh token reuse detected: session family revoked',
         );
+        const owner = await loadUser(eq(users.id, result.userId));
+        if (owner !== null) {
+          await recordAudit(
+            {
+              action: 'auth.refresh_reuse_detected',
+              userId: owner.user.id,
+              tenantId: owner.user.tenantId,
+              metadata: { familyId: result.familyId },
+            },
+            ctx,
+            { wait: true },
+          );
+        }
         throw invalidSession();
       }
       if (result.status === 'invalid') throw invalidSession();
@@ -266,9 +350,22 @@ export function createAuthService(deps: AuthServiceDeps) {
       return issueTokens(loaded, { token: next.token, expiresAt });
     },
 
-    /** Idempotent: an unknown or already-revoked token is not an error. */
-    async logout(token: string): Promise<void> {
-      await sessions.revokeFamilyByTokenHash(hashRefreshToken(token), now());
+    /** Idempotent: an unknown or already-revoked token is not an error (and is not audited). */
+    async logout(token: string, ctx: AuthContext): Promise<void> {
+      const ended = await sessions.revokeFamilyByTokenHash(hashRefreshToken(token), now());
+      if (ended === null) return;
+      const owner = await loadUser(eq(users.id, ended.userId));
+      if (owner === null) return;
+      await recordAudit(
+        { action: 'auth.logout', userId: owner.user.id, tenantId: owner.user.tenantId },
+        ctx,
+        { wait: true },
+      );
+    },
+
+    /** Waits for audit writes that were not awaited by their request. Call before closing the DB. */
+    async drain(): Promise<void> {
+      await Promise.all(Array.from(pendingAudits));
     },
 
     /** Resolves a Bearer access token to the current, database-backed identity. */
