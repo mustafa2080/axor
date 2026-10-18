@@ -408,3 +408,133 @@ describe('production cookie attributes', () => {
     }
   });
 });
+
+describe('register', () => {
+  const GOOD = { companyName: 'Beta Logistics', email: 'founder@beta.test', password: PASSWORD };
+
+  function register(payload: Record<string, unknown>, origin: string | null = ORIGIN) {
+    return app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      headers: origin === null ? {} : { origin },
+      payload,
+    });
+  }
+  const count = async (table: typeof schema.tenants | typeof schema.users) =>
+    (await db.select().from(table)).length;
+
+  it('creates the company and its owner in one go and signs the owner in', async () => {
+    const res = await register({ ...GOOD, companyName: '  Beta Logistics  ', email: ' Founder@Beta.TEST ' });
+    expect(res.statusCode).toBe(201);
+    expect(res.headers['cache-control']).toBe('no-store');
+
+    const refreshToken = cookieOf(res);
+    expect(refreshToken).toBeTypeOf('string');
+    expect(res.body).not.toContain(refreshToken as string);
+    expect(res.body).not.toContain(PASSWORD);
+    const body = res.json<{ data: { accessToken: string; user: Record<string, unknown> } }>();
+    expect(body.data.user).toMatchObject({ email: 'founder@beta.test', kind: 'tenant', role: 'owner' });
+
+    const [tenant] = await db
+      .select()
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, body.data.user['tenantId'] as string));
+    expect(tenant).toMatchObject({ name: 'Beta Logistics', status: 'active' });
+
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, 'founder@beta.test'));
+    expect(user?.passwordHash?.startsWith('$argon2id$')).toBe(true);
+    expect(user).toMatchObject({ tenantRole: 'owner', platformRole: null, status: 'active' });
+
+    // The returned tokens really work.
+    expect((await me(body.data.accessToken)).statusCode).toBe(200);
+    expect((await refresh(refreshToken)).statusCode).toBe(200);
+  });
+
+  it('writes an audit record for the new company, without credentials', async () => {
+    const res = await register(GOOD);
+    const tenantIdOfOwner = res.json<{ data: { user: { tenantId: string } } }>().data.user.tenantId;
+    const rows = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.tenantId, tenantIdOfOwner));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ action: 'tenant.registered', targetType: 'tenant' });
+    expect(JSON.stringify(rows[0])).not.toContain(PASSWORD);
+  });
+
+  it('rejects client-supplied role, tenant or status instead of ignoring them (mass assignment)', async () => {
+    for (const extra of [
+      { role: 'owner' },
+      { tenantRole: 'owner' },
+      { platformRole: 'owner' },
+      { tenantId: tenantId },
+      { status: 'active' },
+    ]) {
+      const res = await register({ ...GOOD, ...extra });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ error: { code: string } }>().error.code).toBe('VALIDATION_ERROR');
+    }
+    expect(await count(schema.tenants)).toBe(2);
+    expect(await count(schema.users)).toBe(4);
+  });
+
+  it('enforces the password policy and never echoes the password', async () => {
+    for (const password of ['Short1!', 'password1234', 'founder@beta.test-1', 'x'.repeat(129)]) {
+      const res = await register({ ...GOOD, password });
+      expect(res.statusCode).toBe(400);
+      const body = res.json<{ error: { code: string; details: Array<{ path: string }> } }>();
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+      expect(body.error.details[0]?.path).toBe('password');
+      expect(res.body).not.toContain(password);
+    }
+    expect(await count(schema.tenants)).toBe(2);
+  });
+
+  it('validates the email and the company name', async () => {
+    for (const bad of [
+      { email: 'not-an-email' },
+      { email: '' },
+      { companyName: 'x' },
+      { companyName: '   ' },
+      { companyName: 'bad\u0000name' },
+      { companyName: 'x'.repeat(201) },
+    ]) {
+      expect((await register({ ...GOOD, ...bad })).statusCode).toBe(400);
+    }
+    expect(await count(schema.tenants)).toBe(2);
+  });
+
+  it('answers 409 for a taken email (any case) and leaves NO half-created company behind', async () => {
+    for (const email of ['owner@alpha.test', 'OWNER@ALPHA.TEST']) {
+      const res = await register({ ...GOOD, email });
+      expect(res.statusCode).toBe(409);
+      expect(res.headers['set-cookie']).toBeUndefined();
+    }
+    // The tenant insert ran before the user insert failed: the transaction must have rolled it back.
+    expect(await count(schema.tenants)).toBe(2);
+    expect(await count(schema.users)).toBe(4);
+  });
+
+  it('has exactly one winner when the same email registers concurrently', async () => {
+    const results = await Promise.all([register(GOOD), register(GOOD)]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([201, 409]);
+    expect(await count(schema.tenants)).toBe(3);
+  });
+
+  it('rejects a missing or foreign Origin without creating anything', async () => {
+    for (const origin of [null, 'https://evil.example']) {
+      expect((await register(GOOD, origin)).statusCode).toBe(403);
+    }
+    expect(await count(schema.tenants)).toBe(2);
+  });
+
+  it('limits registrations per IP, with Retry-After', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      expect((await register({ ...GOOD, email: `founder${i}@beta.test` })).statusCode).toBe(201);
+    }
+    const blocked = await register({ ...GOOD, email: 'founder99@beta.test' });
+    expect(blocked.statusCode).toBe(429);
+    expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+    expect(await count(schema.tenants)).toBe(7);
+  });
+});

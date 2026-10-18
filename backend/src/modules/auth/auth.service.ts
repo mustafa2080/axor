@@ -1,18 +1,24 @@
 import { eq } from 'drizzle-orm';
-import { tooManyRequests, unauthorized } from '../../common/errors.js';
+import { AppError, conflict, tooManyRequests, unauthorized } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../../database/client.js';
 import { createRefreshSessionsRepository } from '../../database/repositories/refresh-sessions.repository.js';
+import { TenantAuditLogsRepository } from '../../database/repositories/tenant-audit-logs.repository.js';
 import { tenants, users } from '../../database/schema/index.js';
 import type { Principal } from '../authz/principal.js';
+import { requireTenantScope } from '../authz/tenant-scope.js';
 import type { AccessTokenService } from './access-token.js';
 import { createFailureThrottle } from './login-throttle.js';
-import { verifyPassword } from './password.js';
+import { hashPassword, verifyPassword } from './password.js';
+import { checkPasswordPolicy } from './password-policy.js';
+import type { PasswordIssue } from './password-policy.js';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token.js';
 
 export interface AuthContext {
   ip: string;
   userAgent: string | null;
+  /** Correlates audit records with the request log. */
+  requestId?: string;
   /** Fastify's request.log satisfies this. Used for security events only (never secrets). */
   log: { warn: (obj: object, msg: string) => void };
 }
@@ -45,8 +51,33 @@ interface LoadedUser {
 }
 
 const WINDOW_MS = 15 * 60 * 1000;
+const REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
 const invalidCredentials = () => unauthorized('Invalid email or password');
 const invalidSession = () => unauthorized('Invalid or expired session');
+
+export interface RegisterInput {
+  companyName: string;
+  email: string;
+  password: string;
+}
+
+const PASSWORD_ISSUE_MESSAGES: Record<PasswordIssue, string> = {
+  too_short: 'Password is too short',
+  too_long: 'Password is too long',
+  too_common: 'Password is too common',
+  contains_email: 'Password must not contain your email address',
+};
+
+/** MariaDB duplicate-key error, however many wrappers the driver/ORM put around it. */
+function isDuplicateEntry(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth += 1) {
+    const candidate = current as { code?: unknown; errno?: unknown; cause?: unknown };
+    if (candidate.code === 'ER_DUP_ENTRY' || candidate.errno === 1062) return true;
+    current = candidate.cause;
+  }
+  return false;
+}
 
 /** The Principal is built ONLY here, from the database record (ADR-0003 §5, ADR-0004 §2). */
 function toPrincipal(user: UserRow): Principal | null {
@@ -71,6 +102,11 @@ export function createAuthService(deps: AuthServiceDeps) {
   // 5 failures per (ip + email) and 30 per email across all IPs, per 15 minutes (ADR-0004 §6).
   const byIpAndEmail = createFailureThrottle({ maxFailures: 5, windowMs: WINDOW_MS });
   const byEmail = createFailureThrottle({ maxFailures: 30, windowMs: WINDOW_MS });
+  // Registrations cost an Argon2 hash and create rows: 5 attempts per IP per hour (ADR-0004 §10).
+  const registrationsByIp = createFailureThrottle({
+    maxFailures: 5,
+    windowMs: REGISTRATION_WINDOW_MS,
+  });
 
   async function loadUser(where: ReturnType<typeof eq>): Promise<LoadedUser | null> {
     const [row] = await db
@@ -102,6 +138,20 @@ export function createAuthService(deps: AuthServiceDeps) {
     };
   }
 
+  /** Starts a brand-new session family (login, registration). */
+  async function openSession(loaded: LoadedUser, ctx: AuthContext): Promise<SessionTokens> {
+    const refresh = generateRefreshToken();
+    const expiresAt = refreshExpiry();
+    await sessions.create({
+      userId: loaded.user.id,
+      familyId: uuidv7(),
+      tokenHash: refresh.tokenHash,
+      expiresAt,
+      userAgent: ctx.userAgent,
+    });
+    return issueTokens(loaded, { token: refresh.token, expiresAt });
+  }
+
   return {
     async login(email: string, password: string, ctx: AuthContext): Promise<SessionTokens> {
       const emailKey = email.trim().toLowerCase();
@@ -123,17 +173,71 @@ export function createAuthService(deps: AuthServiceDeps) {
         throw invalidCredentials();
       }
       byIpAndEmail.reset(ipEmailKey);
+      return openSession(loaded, ctx);
+    },
 
-      const refresh = generateRefreshToken();
-      const expiresAt = refreshExpiry();
-      await sessions.create({
-        userId: loaded.user.id,
-        familyId: uuidv7(),
-        tokenHash: refresh.tokenHash,
-        expiresAt,
-        userAgent: ctx.userAgent,
-      });
-      return issueTokens(loaded, { token: refresh.token, expiresAt });
+    /**
+     * Creates a company and its owner in ONE transaction, then signs the owner in.
+     * Role and tenant are fixed here (never taken from the request). Trials/subscriptions are
+     * not started here: they need the plan catalog (phase D).
+     */
+    async register(input: RegisterInput, ctx: AuthContext): Promise<SessionTokens> {
+      const email = input.email.trim().toLowerCase();
+
+      const issues = checkPasswordPolicy(input.password, { email });
+      if (issues.length > 0) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'Request validation failed',
+          issues.map((issue) => ({ path: 'password', message: PASSWORD_ISSUE_MESSAGES[issue] })),
+        );
+      }
+
+      // Counted from here on: only attempts that cost a hash and a transaction.
+      const wait = registrationsByIp.retryAfterSeconds(ctx.ip);
+      if (wait > 0) throw tooManyRequests(wait);
+      registrationsByIp.recordFailure(ctx.ip);
+
+      // Hash BEFORE touching the database so a taken email costs the same time as a free one.
+      const passwordHash = await hashPassword(input.password);
+
+      const tenantId = uuidv7();
+      const userId = uuidv7();
+      try {
+        await db.transaction(async (tx) => {
+          await tx.insert(tenants).values({ id: tenantId, name: input.companyName.trim() });
+          await tx.insert(users).values({
+            id: userId,
+            email,
+            passwordHash,
+            tenantId,
+            tenantRole: 'owner',
+          });
+        });
+      } catch (error) {
+        // Registration needs an explicit answer, so a taken email is visible here. Mitigated by the
+        // per-IP limits above; the full fix is email verification (ADR-0004 §10).
+        if (isDuplicateEntry(error)) throw conflict('This email is already registered');
+        throw error;
+      }
+
+      // Audit never blocks or fails a registration (audit_logs has no FKs by design).
+      try {
+        const scope = requireTenantScope({ kind: 'tenant', userId, tenantId, role: 'owner' });
+        await new TenantAuditLogsRepository(db, scope).record({
+          action: 'tenant.registered',
+          targetType: 'tenant',
+          targetId: tenantId,
+          ...(ctx.requestId !== undefined && { requestId: ctx.requestId }),
+        });
+      } catch {
+        ctx.log.warn({ event: 'audit_write_failed', tenantId }, 'could not record registration');
+      }
+
+      const loaded = await loadUser(eq(users.id, userId));
+      if (loaded === null) throw invalidSession();
+      return openSession(loaded, ctx);
     },
 
     async refresh(token: string, ctx: AuthContext): Promise<SessionTokens> {

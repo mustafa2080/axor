@@ -14,6 +14,26 @@ const loginBody = z.strictObject({
   password: z.string().min(1).max(256),
 });
 
+// Strict: role, tenantId, status... sent by a client are rejected, never ignored (mass assignment).
+// The password's own rules (length, common, contains email) are enforced by the service policy.
+const registerBody = z.strictObject({
+  companyName: z
+    .string()
+    .trim()
+    .min(2)
+    .max(200)
+    .refine(
+      (value) =>
+        [...value].every((char) => {
+          const code = char.codePointAt(0) ?? 0;
+          return code > 31 && code !== 127;
+        }),
+      'Company name has invalid characters',
+    ),
+  email: z.string().trim().max(320).pipe(z.email()),
+  password: z.string().min(1).max(256),
+});
+
 const COOKIE_PATH = '/api/v1/auth';
 
 function publicUser({ principal, email }: AuthenticatedUser) {
@@ -47,6 +67,7 @@ export function authRoutes(auth: AuthService, env: Env) {
     const userAgent = request.headers['user-agent'];
     return {
       ip: request.ip,
+      requestId: request.id,
       userAgent: typeof userAgent === 'string' ? userAgent : null,
       log: request.log,
     };
@@ -75,6 +96,14 @@ export function authRoutes(auth: AuthService, env: Env) {
     app.addHook('onSend', async (_request, reply, payload) => {
       void reply.header('cache-control', 'no-store');
       return payload;
+    });
+
+    app.post('/auth/register', async (request, reply) => {
+      requireTrustedOrigin(request);
+      const body = parseInput(registerBody, request.body);
+      const session = await auth.register(body, contextOf(request));
+      void reply.code(201);
+      return sendSession(reply, session);
     });
 
     app.post('/auth/login', async (request, reply) => {
