@@ -63,12 +63,21 @@ if (email === undefined || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.le
   fail('pass a valid --email=you@example.com');
 }
 if (!platformRoles.includes(role)) fail(`--role must be one of: ${platformRoles.join(', ')}`);
-if (!process.stdin.isTTY) fail('run this in an interactive terminal (the password is typed hidden)');
-
-const password = await promptHidden('Password: ');
+// Non-interactive use (automation): AXOR_NEW_PASSWORD in the environment of this one process.
+// Still never a command-line argument.
+const fromEnv = process.env['AXOR_NEW_PASSWORD'];
+let password: string;
+if (fromEnv !== undefined && fromEnv !== '') {
+  password = fromEnv;
+} else {
+  if (!process.stdin.isTTY) fail('run this in an interactive terminal (the password is typed hidden)');
+  password = await promptHidden('Password: ');
+}
 const issues = checkPasswordPolicy(password, { email });
 if (issues.length > 0) fail(`password rejected (${issues.join(', ')}). Use 12+ characters, not common.`);
-if ((await promptHidden('Repeat password: ')) !== password) fail('passwords do not match');
+if (fromEnv === undefined || fromEnv === '') {
+  if ((await promptHidden('Repeat password: ')) !== password) fail('passwords do not match');
+}
 
 const database = createDatabase(loadEnv().DATABASE_URL);
 try {
