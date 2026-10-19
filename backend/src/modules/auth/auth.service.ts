@@ -9,6 +9,7 @@ import {
 } from '../../database/repositories/auth-audit-logs.repository.js';
 import { createRefreshSessionsRepository } from '../../database/repositories/refresh-sessions.repository.js';
 import { TenantAuditLogsRepository } from '../../database/repositories/tenant-audit-logs.repository.js';
+import { isDuplicateEntry } from '../../database/errors.js';
 import { retryOnDeadlock } from '../../database/retry.js';
 import { refreshSessions, tenants, users } from '../../database/schema/index.js';
 import type { Principal } from '../authz/principal.js';
@@ -75,17 +76,6 @@ const PASSWORD_ISSUE_MESSAGES: Record<PasswordIssue, string> = {
   too_common: 'Password is too common',
   contains_email: 'Password must not contain your email address',
 };
-
-/** MariaDB duplicate-key error, however many wrappers the driver/ORM put around it. */
-function isDuplicateEntry(error: unknown): boolean {
-  let current: unknown = error;
-  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth += 1) {
-    const candidate = current as { code?: unknown; errno?: unknown; cause?: unknown };
-    if (candidate.code === 'ER_DUP_ENTRY' || candidate.errno === 1062) return true;
-    current = candidate.cause;
-  }
-  return false;
-}
 
 /** The Principal is built ONLY here, from the database record (ADR-0003 §5, ADR-0004 §2). */
 function toPrincipal(user: UserRow): Principal | null {

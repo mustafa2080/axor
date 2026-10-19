@@ -12,6 +12,7 @@
     "dev:api": "pnpm --filter backend dev",
     "db:migrate": "pnpm --filter backend db:migrate",
     "db:generate": "pnpm --filter backend db:generate",
+    "create:platform-user": "pnpm --filter backend create:platform-user",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "pnpm -r --if-present lint",
