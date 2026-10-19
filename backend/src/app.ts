@@ -10,10 +10,13 @@ import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthDeps } from './modules/health/health.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import type { AuthService } from './modules/auth/auth.service.js';
+import { catalogRoutes } from './modules/catalog/catalog.routes.js';
+import type { CatalogRepository } from './database/repositories/catalog.repository.js';
 
 export type AppDeps = HealthDeps & {
   /** Optional so that tests of unrelated parts do not need a database. */
   auth?: AuthService;
+  catalog?: CatalogRepository;
 };
 
 export interface AppOptions {
@@ -151,6 +154,9 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   void app.register(healthRoutes(deps), { prefix: '/api/v1' });
   if (deps.auth !== undefined) {
     void app.register(authRoutes(deps.auth, env), { prefix: '/api/v1' });
+  }
+  if (deps.catalog !== undefined) {
+    void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });
   }
 
   return app;

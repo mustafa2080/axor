@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { createDatabase } from './database/client.js';
+import { createCatalogRepository } from './database/repositories/catalog.repository.js';
 import { createAccessTokenService } from './modules/auth/access-token.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 
@@ -17,7 +18,8 @@ const auth = createAuthService({
   accessTokens,
   refreshTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
 });
-const app = buildApp(env, { checkDatabase: () => database.ping(), auth });
+const catalog = createCatalogRepository(database.db);
+const app = buildApp(env, { checkDatabase: () => database.ping(), auth, catalog });
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
