@@ -26,10 +26,24 @@ const serverHash = () => ''
 
 export type CompanyRoute = 'subscriptions' | 'start'
 
-/** مسارات لوحة الشركة: #/ (اشتراكاتي) و#/start (ابدأ تجربة). */
+/** الرابط اللي بنوصّل عليه الزائر لو التسجيل نجح وبدء التجربة اللي اختارها فشل. */
+export const TRIAL_FAILED_HASH = '#/start?trial=failed'
+
+/** هل الرابط ده معناه «التسجيل تم لكن بدء التجربة فشل»؟ (دالة نقية للاختبار). */
+export function isTrialFailedHash(hash: string): boolean {
+  return hash === TRIAL_FAILED_HASH
+}
+
+/** مسارات لوحة الشركة: #/ (اشتراكاتي) و#/start (ابدأ تجربة، ممكن معاه ?trial=failed). */
 export function useCompanyRoute(): CompanyRoute {
   const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
-  return hash === '#/start' ? 'start' : 'subscriptions'
+  return hash.split('?')[0] === '#/start' ? 'start' : 'subscriptions'
+}
+
+/** true لما الزائر وصل لـ #/start بعد فشل بدء التجربة عقب التسجيل. */
+export function useTrialFailed(): boolean {
+  const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
+  return isTrialFailedHash(hash)
 }
 
 export type PublicRoute = 'login' | 'register' | 'plans'

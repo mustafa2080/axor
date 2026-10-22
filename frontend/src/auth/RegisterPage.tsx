@@ -8,7 +8,7 @@ import { buildOffers } from '../lib/company-offers.ts'
 import { registerErrorMessage } from '../lib/labels.ts'
 import { findOffer } from '../lib/plan-choice.ts'
 import type { PlanChoice } from '../lib/plan-choice.ts'
-import { usePlanChoice } from '../lib/useRoute.ts'
+import { TRIAL_FAILED_HASH, usePlanChoice } from '../lib/useRoute.ts'
 
 type Selected =
   | { status: 'none' }
@@ -60,7 +60,7 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
 
   // الواجهة بتبعت الكود بس (الخادم بيقرر المدة والحالة). لو فشل بدء التجربة، الزائر بيوصل لصفحة
-  // «ابدأ تجربة» والتسجيل نفسه ثابت.
+  // «ابدأ تجربة» برسالة بتقوله إن التسجيل تم والتجربة هي اللي لسه، والتسجيل نفسه ثابت.
   async function afterRegister() {
     if (selected.status !== 'valid') {
       window.location.hash = '#/start'
@@ -70,7 +70,7 @@ export function RegisterPage() {
       await startTrial(selected.product.code, selected.plan.code)
       window.location.hash = '#/'
     } catch {
-      window.location.hash = '#/start'
+      window.location.hash = TRIAL_FAILED_HASH
     }
   }
 

@@ -6,6 +6,7 @@ import { buildOffers } from '../lib/company-offers.ts'
 import type { Offers } from '../lib/company-offers.ts'
 import { errorMessage } from '../lib/labels.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
+import { useTrialFailed } from '../lib/useRoute.ts'
 import { OfferCards } from './OfferCards.tsx'
 
 type State =
@@ -70,6 +71,7 @@ export function StartTrial({ canManage }: { canManage: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [version, setVersion] = useState(0)
   const [choice, setChoice] = useState<{ product: PublicProduct; plan: PublicPlan } | null>(null)
+  const trialFailed = useTrialFailed()
 
   useEffect(() => {
     let active = true
@@ -91,6 +93,12 @@ export function StartTrial({ canManage }: { canManage: boolean }) {
       </div>
 
       {canManage ? null : <p className="notice">بدء التجربة لمالك الشركة بس.</p>}
+
+      {trialFailed ? (
+        <p className="notice" role="alert">
+          تم إنشاء حسابك بنجاح، لكن معرفناش نبدأ التجربة اللي اخترتها. تقدر تبدأها من هنا بنفسك.
+        </p>
+      ) : null}
 
       {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
       {state.status === 'error' ? (
