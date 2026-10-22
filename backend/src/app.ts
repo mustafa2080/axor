@@ -14,6 +14,9 @@ import { catalogRoutes } from './modules/catalog/catalog.routes.js';
 import type { CatalogRepository } from './database/repositories/catalog.repository.js';
 import type { CatalogAdminRepository } from './database/repositories/catalog-admin.repository.js';
 import { catalogAdminRoutes } from './modules/admin/catalog-admin.routes.js';
+import type { SubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
+import { subscriptionsAdminRoutes } from './modules/admin/subscriptions-admin.routes.js';
+import { subscriptionsRoutes } from './modules/subscriptions/subscriptions.routes.js';
 
 export type AppDeps = HealthDeps & {
   /** Optional so that tests of unrelated parts do not need a database. */
@@ -21,6 +24,8 @@ export type AppDeps = HealthDeps & {
   catalog?: CatalogRepository;
   /** Needs `auth` too: every admin route authenticates the caller first. */
   catalogAdmin?: CatalogAdminRepository;
+  /** Trials and subscriptions, for companies and for platform staff. Needs `auth` too. */
+  subscriptions?: SubscriptionsRepository;
 };
 
 export interface AppOptions {
@@ -161,6 +166,12 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   }
   if (deps.auth !== undefined && deps.catalogAdmin !== undefined) {
     void app.register(catalogAdminRoutes(deps.auth, deps.catalogAdmin), { prefix: '/api/v1' });
+  }
+  if (deps.auth !== undefined && deps.subscriptions !== undefined) {
+    void app.register(subscriptionsRoutes(deps.auth, deps.subscriptions), { prefix: '/api/v1' });
+    void app.register(subscriptionsAdminRoutes(deps.auth, deps.subscriptions), {
+      prefix: '/api/v1',
+    });
   }
   if (deps.catalog !== undefined) {
     void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });

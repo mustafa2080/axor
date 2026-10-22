@@ -3,8 +3,10 @@ import { loadEnv } from './config/env.js';
 import { createDatabase } from './database/client.js';
 import { createCatalogAdminRepository } from './database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from './database/repositories/catalog.repository.js';
+import { createSubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
 import { createAccessTokenService } from './modules/auth/access-token.js';
 import { createAuthService } from './modules/auth/auth.service.js';
+import { startExpiryJob } from './modules/subscriptions/expiry-job.js';
 
 const env = loadEnv();
 const database = createDatabase(env.DATABASE_URL);
@@ -21,10 +23,29 @@ const auth = createAuthService({
 });
 const catalog = createCatalogRepository(database.db);
 const catalogAdmin = createCatalogAdminRepository(database.db);
-const app = buildApp(env, { checkDatabase: () => database.ping(), auth, catalog, catalogAdmin });
+const subscriptions = createSubscriptionsRepository(database.db);
+const app = buildApp(env, {
+  checkDatabase: () => database.ping(),
+  auth,
+  catalog,
+  catalogAdmin,
+  subscriptions,
+});
+
+// Makes the stored status catch up with end dates (ADR-0007). Access itself never waits for it.
+const EXPIRY_INTERVAL_MS = 60_000;
+const expiryJob = startExpiryJob({
+  run: () => subscriptions.expireDue(),
+  intervalMs: EXPIRY_INTERVAL_MS,
+  onResult: (expired) => {
+    if (expired > 0) app.log.info({ expired }, 'subscriptions expired');
+  },
+  onError: (error) => app.log.error({ err: error }, 'subscription expiry pass failed'),
+});
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
+  await expiryJob.stop();
   await app.close();
   await auth.drain();
   await database.close();
