@@ -27,7 +27,7 @@ export function LoginPage() {
     <main className="login">
       <form className="login-card form" onSubmit={(event) => void submit(event)}>
         <h1>AXOR</h1>
-        <p className="muted">لوحة إدارة المنصة. دخول موظفي المنصة بس.</p>
+        <p className="muted">سجّل الدخول لحسابك.</p>
         <Field label="البريد الإلكتروني">
           <input
             className="ltr"
@@ -53,6 +53,9 @@ export function LoginPage() {
         <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? 'جاري الدخول…' : 'دخول'}
         </button>
+        <p className="muted">
+          معندكش حساب؟ <a href="#/register">سجّل شركتك</a>
+        </p>
       </form>
     </main>
   )

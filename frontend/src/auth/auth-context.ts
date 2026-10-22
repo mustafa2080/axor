@@ -9,6 +9,7 @@ export type AuthState =
 export interface AuthContextValue {
   state: AuthState
   signIn: (email: string, password: string) => Promise<void>
+  signUp: (input: { companyName: string; email: string; password: string }) => Promise<void>
   signOut: () => Promise<void>
 }
 

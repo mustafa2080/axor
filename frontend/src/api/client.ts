@@ -83,6 +83,17 @@ export async function login(email: string, password: string): Promise<Session> {
   return session
 }
 
+/** تسجيل شركة جديدة + مالكها. الخادم بيفتح جلسة جاهزة (نفس شكل الدخول). */
+export async function registerCompany(input: {
+  companyName: string
+  email: string
+  password: string
+}): Promise<Session> {
+  const session = unwrap<Session>(await rawRequest('POST', '/auth/register', input))
+  accessToken = session.accessToken
+  return session
+}
+
 /**
  * بيجدد الجلسة من كوكي الـ refresh. طلب واحد بس في نفس الوقت (React StrictMode بينده مرتين،
  * والـ refresh token بيتغير مع كل استخدام: طلبين متوازيين = كشف إعادة استخدام وقفل الجلسة).

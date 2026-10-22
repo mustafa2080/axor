@@ -42,6 +42,13 @@ export const platformRoleLabel: Record<string, string> = {
   support: 'دعم',
 }
 
+export const tenantRoleLabel: Record<string, string> = {
+  owner: 'مالك الشركة',
+  admin: 'مدير',
+  member: 'عضو',
+  read_only: 'قراءة فقط',
+}
+
 interface Issue {
   path: string
   message: string
@@ -102,4 +109,31 @@ export function errorMessage(
     default:
       return 'حصل خطأ في الخادم. جرّب تاني.'
   }
+}
+
+// رسائل سياسة كلمة السر من الخادم (backend/src/modules/auth/auth.service.ts) بالعربي.
+const passwordIssueLabel: Record<string, string> = {
+  'Password is too short': 'كلمة السر قصيرة (12 حرف على الأقل).',
+  'Password is too long': 'كلمة السر طويلة (128 حرف كحد أقصى).',
+  'Password is too common': 'كلمة السر شائعة جداً. اختار كلمة أصعب.',
+  'Password must not contain your email address': 'كلمة السر ما ينفعش تحتوي على بريدك الإلكتروني.',
+}
+
+/** رسالة عربي لأخطاء تسجيل شركة جديدة. التسجيل لازم يقول لو البريد مسجّل (ADR-0004 §10). */
+export function registerErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'CONFLICT') return 'البريد ده مسجّل بالفعل. جرّب تسجّل الدخول.'
+    if (error.code === 'VALIDATION_ERROR') {
+      const parts = issuesOf(error.details).map((issue) => {
+        const known = passwordIssueLabel[issue.message]
+        if (known !== undefined) return known
+        if (issue.path === 'companyName') return 'اسم الشركة غير صالح (من حرفين لـ 200 حرف).'
+        if (issue.path === 'email') return 'البريد الإلكتروني غير صالح.'
+        if (issue.path === 'password') return 'كلمة السر غير صالحة.'
+        return 'البيانات غير صالحة.'
+      })
+      return parts.length === 0 ? 'البيانات غير صالحة.' : [...new Set(parts)].join(' ')
+    }
+  }
+  return errorMessage(error)
 }

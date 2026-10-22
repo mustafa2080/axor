@@ -18,3 +18,22 @@ export function useRoute(): Route {
   if (hash === '#/subscriptions') return 'subscriptions'
   return 'products'
 }
+
+const currentHash = () => window.location.hash
+const serverHash = () => ''
+
+export type CompanyRoute = 'subscriptions' | 'start'
+
+/** مسارات لوحة الشركة: #/ (اشتراكاتي) و#/start (ابدأ تجربة). */
+export function useCompanyRoute(): CompanyRoute {
+  const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
+  return hash === '#/start' ? 'start' : 'subscriptions'
+}
+
+export type PublicRoute = 'login' | 'register'
+
+/** قبل الدخول: #/register لتسجيل شركة جديدة، وأي حاجة تانية شاشة الدخول. */
+export function usePublicRoute(): PublicRoute {
+  const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
+  return hash === '#/register' ? 'register' : 'login'
+}

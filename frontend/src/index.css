@@ -147,6 +147,13 @@ code,
 .card-archived {
   opacity: 0.72;
 }
+.card .card {
+  background: var(--bg);
+}
+.login-card a,
+.empty a {
+  color: var(--accent);
+}
 .card-head {
   display: flex;
   justify-content: space-between;
