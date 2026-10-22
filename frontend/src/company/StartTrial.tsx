@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { listMySubscriptions, listPublicPlans, listPublicProducts, startTrial } from '../api/company.ts'
+import { listMySubscriptions, loadPublicCatalog, startTrial } from '../api/company.ts'
 import type { PublicPlan, PublicProduct } from '../api/company.ts'
-import { Badge, ErrorNote, Modal } from '../components/ui.tsx'
+import { ErrorNote, Modal } from '../components/ui.tsx'
 import { buildOffers } from '../lib/company-offers.ts'
 import type { Offers } from '../lib/company-offers.ts'
 import { errorMessage } from '../lib/labels.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
-import { PlanTerms } from './PlanTerms.tsx'
+import { OfferCards } from './OfferCards.tsx'
 
 type State =
   | { status: 'loading' }
@@ -15,23 +15,16 @@ type State =
 
 async function fetchOffers(): Promise<State> {
   try {
-    const [products, mine] = await Promise.all([listPublicProducts(), listMySubscriptions()])
-    const available = products.filter((product) => product.status === 'available')
-    const lists = await Promise.all(available.map((product) => listPublicPlans(product.code)))
-    const plansByProduct: Record<string, PublicPlan[]> = {}
-    available.forEach((product, index) => {
-      plansByProduct[product.code] = lists[index] ?? []
-    })
+    const [catalog, mine] = await Promise.all([loadPublicCatalog(), listMySubscriptions()])
     const subscribed = new Set(mine.map((item) => item.productCode))
-    return { status: 'ready', data: buildOffers(products, plansByProduct, subscribed), subscribedCount: subscribed.size }
+    return {
+      status: 'ready',
+      data: buildOffers(catalog.products, catalog.plansByProduct, subscribed),
+      subscribedCount: subscribed.size,
+    }
   } catch (error) {
     return { status: 'error', message: errorMessage(error) }
   }
-}
-
-function activityName(product: PublicProduct, plan: PublicPlan): string {
-  if (plan.activity === null) return 'كل الأنشطة'
-  return product.activities.find((activity) => activity.code === plan.activity)?.name ?? plan.activity
 }
 
 function ConfirmModal({
@@ -117,58 +110,20 @@ export function StartTrial({ canManage }: { canManage: boolean }) {
         </p>
       ) : null}
 
-      {state.status === 'ready'
-        ? state.data.offers.map(({ product, plans }) => (
-            <article className="card" key={product.code}>
-              <div className="card-head">
-                <h2>{product.name}</h2>
-                <Badge tone="good">متاح</Badge>
-              </div>
-              {plans.map((plan) => (
-                <div className="card" key={plan.code}>
-                  <div className="card-head">
-                    <div>
-                      <strong className="ltr">{plan.code}</strong>
-                      <p className="muted">{activityName(product, plan)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={!canManage}
-                      onClick={() => setChoice({ product, plan })}
-                    >
-                      ابدأ تجربة {plan.trialDays} يوم
-                    </button>
-                  </div>
-                  <PlanTerms
-                    terms={{
-                      priceMinor: plan.price.amountMinor,
-                      currency: plan.price.currency,
-                      billingPeriod: plan.price.billingPeriod,
-                      trialDays: plan.trialDays,
-                      limits: plan.limits,
-                      features: plan.features,
-                    }}
-                    showTrial
-                  />
-                </div>
-              ))}
-            </article>
-          ))
-        : null}
-
-      {state.status === 'ready' && state.data.comingSoon.length > 0 ? (
-        <article className="card card-archived">
-          <h2>قريباً</h2>
-          <ul>
-            {state.data.comingSoon.map((product) => (
-              <li key={product.code}>
-                {product.name} <Badge tone="muted">قريباً</Badge>
-              </li>
-            ))}
-          </ul>
-          <p className="muted">الأنظمة دي مش متاح الاشتراك فيها لسه.</p>
-        </article>
+      {state.status === 'ready' ? (
+        <OfferCards
+          data={state.data}
+          renderAction={(product, plan) => (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!canManage}
+              onClick={() => setChoice({ product, plan })}
+            >
+              ابدأ تجربة {plan.trialDays} يوم
+            </button>
+          )}
+        />
       ) : null}
 
       {choice === null ? null : (

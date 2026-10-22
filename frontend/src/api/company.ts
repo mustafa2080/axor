@@ -62,3 +62,18 @@ export const listPublicProducts = () => api<PublicProduct[]>('GET', '/catalog/pr
 
 export const listPublicPlans = (productCode: string) =>
   api<PublicPlan[]>('GET', `/catalog/products/${encodeURIComponent(productCode)}/plans`)
+
+/** الكتالوج العام (من غير دخول): كل الأنظمة، وباقات الأنظمة المتاحة بس. */
+export async function loadPublicCatalog(): Promise<{
+  products: PublicProduct[]
+  plansByProduct: Record<string, PublicPlan[]>
+}> {
+  const products = await listPublicProducts()
+  const available = products.filter((product) => product.status === 'available')
+  const lists = await Promise.all(available.map((product) => listPublicPlans(product.code)))
+  const plansByProduct: Record<string, PublicPlan[]> = {}
+  available.forEach((product, index) => {
+    plansByProduct[product.code] = lists[index] ?? []
+  })
+  return { products, plansByProduct }
+}

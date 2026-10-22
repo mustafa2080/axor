@@ -245,6 +245,13 @@ code,
   opacity: 0.55;
   cursor: not-allowed;
 }
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
+.user a {
+  color: var(--text);
+}
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);

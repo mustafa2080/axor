@@ -1,4 +1,6 @@
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
+import { parsePlanChoice } from './plan-choice.ts'
+import type { PlanChoice } from './plan-choice.ts'
 
 export type Route = 'products' | 'plans' | 'subscriptions'
 
@@ -30,10 +32,22 @@ export function useCompanyRoute(): CompanyRoute {
   return hash === '#/start' ? 'start' : 'subscriptions'
 }
 
-export type PublicRoute = 'login' | 'register'
+export type PublicRoute = 'login' | 'register' | 'plans'
 
-/** قبل الدخول: #/register لتسجيل شركة جديدة، وأي حاجة تانية شاشة الدخول. */
+/**
+ * قبل الدخول: #/plans لاختيار الباقة، و#/register (ممكن معاه ?product=&plan=) لتسجيل شركة جديدة،
+ * وأي حاجة تانية شاشة الدخول.
+ */
 export function usePublicRoute(): PublicRoute {
   const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
-  return hash === '#/register' ? 'register' : 'login'
+  const path = hash.split('?')[0]
+  if (path === '#/register') return 'register'
+  if (path === '#/plans') return 'plans'
+  return 'login'
+}
+
+/** الباقة اللي الزائر اختارها قبل التسجيل (من الرابط)، أو null. */
+export function usePlanChoice(): PlanChoice | null {
+  const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
+  return useMemo(() => parsePlanChoice(hash), [hash])
 }

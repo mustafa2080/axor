@@ -34,8 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUp = useCallback(
-    async (input: { companyName: string; email: string; password: string }) => {
+    async (
+      input: { companyName: string; email: string; password: string },
+      afterRegister?: () => Promise<void>,
+    ) => {
       const session = await registerCompany(input)
+      try {
+        await afterRegister?.()
+      } catch {
+        // التسجيل نجح والجلسة مفتوحة؛ فشل الخطوة الإضافية مبيمنعش الدخول (اللي بيستدعي بيعالج أخطاءه).
+      }
       setState({ status: 'authenticated', user: session.user })
     },
     [],

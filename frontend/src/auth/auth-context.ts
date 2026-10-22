@@ -9,7 +9,14 @@ export type AuthState =
 export interface AuthContextValue {
   state: AuthState
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (input: { companyName: string; email: string; password: string }) => Promise<void>
+  /**
+   * `afterRegister` بيتنفذ بعد ما الجلسة تتفتح (التوكن جاهز) وقبل ما الواجهة تتحول للوحة الشركة،
+   * فاللوحة تتفتح على الحالة النهائية (مثلاً بعد بدء التجربة). لو رمى خطأ بيتجاهل: التسجيل نجح.
+   */
+  signUp: (
+    input: { companyName: string; email: string; password: string },
+    afterRegister?: () => Promise<void>,
+  ) => Promise<void>
   signOut: () => Promise<void>
 }
 

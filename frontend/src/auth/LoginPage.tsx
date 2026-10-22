@@ -54,7 +54,7 @@ export function LoginPage() {
           {busy ? 'جاري الدخول…' : 'دخول'}
         </button>
         <p className="muted">
-          معندكش حساب؟ <a href="#/register">سجّل شركتك</a>
+          معندكش حساب؟ <a href="#/plans">شوف الباقات</a> أو <a href="#/register">سجّل شركتك</a>
         </p>
       </form>
     </main>
