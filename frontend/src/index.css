@@ -177,6 +177,9 @@ code,
   font-weight: 600;
   font-size: 0.82rem;
 }
+.table-wrap {
+  overflow-x: auto;
+}
 .cell-actions {
   text-align: end !important;
   white-space: nowrap;

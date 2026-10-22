@@ -5,6 +5,7 @@ import type {
   PlanStatus,
   ProductStatus,
 } from '../api/catalog.ts'
+import type { SubscriptionStatus } from '../api/subscriptions.ts'
 
 export const productStatusLabel: Record<ProductStatus, string> = {
   available: 'متاح',
@@ -25,6 +26,14 @@ export const planStatusLabel: Record<PlanStatus, string> = {
 export const periodLabel: Record<BillingPeriod, string> = {
   monthly: 'شهري',
   yearly: 'سنوي',
+}
+
+export const subscriptionStatusLabel: Record<SubscriptionStatus, string> = {
+  trialing: 'تجربة',
+  active: 'نشط',
+  past_due: 'متأخر السداد',
+  canceled: 'ملغي',
+  expired: 'منتهي',
 }
 
 export const platformRoleLabel: Record<string, string> = {
@@ -55,7 +64,10 @@ function retryAfterSeconds(details: unknown): number | null {
 }
 
 /** رسالة عربي للمستخدم من أي خطأ. الرسائل الإنجليزي اللي من الخادم ما بتتعرضش إلا في أخطاء التحقق. */
-export function errorMessage(error: unknown, context: 'login' | 'general' = 'general'): string {
+export function errorMessage(
+  error: unknown,
+  context: 'login' | 'general' | 'subscription' = 'general',
+): string {
   if (!(error instanceof ApiError)) return 'حصل خطأ غير متوقع. جرّب تاني.'
   switch (error.code) {
     case 'NETWORK_ERROR':
@@ -75,7 +87,9 @@ export function errorMessage(error: unknown, context: 'login' | 'general' = 'gen
         ? 'الطلب اتمنع (أصل غير موثوق). افتح اللوحة من http://localhost:5173.'
         : 'مش مسموح لك بالعملية دي.'
     case 'CONFLICT':
-      return 'العنصر ده موجود بالفعل (الكود مكرر). اختار كود مختلف.'
+      return context === 'subscription'
+        ? 'العملية دي مش متاحة لحالة الاشتراك الحالية (ممكن حد غيّره). حدّث القائمة وجرّب تاني.'
+        : 'العنصر ده موجود بالفعل (الكود مكرر). اختار كود مختلف.'
     case 'NOT_FOUND':
       return 'العنصر مش موجود. حدّث الصفحة وجرّب تاني.'
     case 'VALIDATION_ERROR': {

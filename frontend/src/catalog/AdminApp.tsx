@@ -3,6 +3,7 @@ import type { SessionUser } from '../api/client.ts'
 import { ErrorNote } from '../components/ui.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { useRoute } from '../lib/useRoute.ts'
+import { SubscriptionsPage } from '../subscriptions/SubscriptionsPage.tsx'
 import { ProductsPage } from './ProductsPage.tsx'
 import { PlansPage } from './PlansPage.tsx'
 import { useCatalog } from './useCatalog.ts'
@@ -36,6 +37,9 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <a href="#/plans" aria-current={route === 'plans' ? 'page' : undefined}>
             الباقات
           </a>
+          <a href="#/subscriptions" aria-current={route === 'subscriptions' ? 'page' : undefined}>
+            الاشتراكات
+          </a>
         </nav>
         <div className="user">
           <span className="ltr">{user.email}</span>
@@ -46,8 +50,9 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         </div>
       </header>
       <main className="content">
-        {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
-        {state.status === 'error' ? (
+        {route === 'subscriptions' ? <SubscriptionsPage /> : null}
+        {route !== 'subscriptions' && state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+        {route !== 'subscriptions' && state.status === 'error' ? (
           <>
             <ErrorNote message={state.message} />
             <button type="button" className="btn" onClick={() => void reload()}>
