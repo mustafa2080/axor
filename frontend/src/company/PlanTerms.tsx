@@ -16,7 +16,7 @@ export function PlanTerms({ terms, showTrial = false }: { terms: CompanyPlanTerm
       {limits.length > 0 ? (
         <ul className="chips" aria-label="الحدود">
           {limits.map(([key, value]) => (
-            <li key={key} className="chip">
+            <li key={key} className="chip" dir="ltr">
               <code>{key}</code>: {value === null ? 'غير محدود' : value}
             </li>
           ))}
