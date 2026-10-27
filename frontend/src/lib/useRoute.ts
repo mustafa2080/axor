@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { parsePlanChoice } from './plan-choice.ts'
 import type { PlanChoice } from './plan-choice.ts'
+import { hashPath } from './routes.ts'
 
 export type Route = 'products' | 'plans' | 'subscriptions'
 
@@ -16,13 +17,19 @@ export function useRoute(): Route {
     () => window.location.hash,
     () => '',
   )
-  if (hash === '#/plans') return 'plans'
-  if (hash === '#/subscriptions') return 'subscriptions'
+  const path = hashPath(hash)
+  if (path === '#/plans') return 'plans'
+  if (path === '#/subscriptions') return 'subscriptions'
   return 'products'
 }
 
 const currentHash = () => window.location.hash
 const serverHash = () => ''
+
+/** الـ hash الحالي (بيتحدّث مع كل تنقل). بنستخدمه عشان نعرف لو الرابط مش معروف. */
+export function useHash(): string {
+  return useSyncExternalStore(subscribe, currentHash, serverHash)
+}
 
 export type CompanyRoute = 'subscriptions' | 'start'
 

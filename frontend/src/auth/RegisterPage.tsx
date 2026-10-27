@@ -9,6 +9,7 @@ import { registerErrorMessage } from '../lib/labels.ts'
 import { findOffer } from '../lib/plan-choice.ts'
 import type { PlanChoice } from '../lib/plan-choice.ts'
 import { TRIAL_FAILED_HASH, usePlanChoice } from '../lib/useRoute.ts'
+import { useSingleFlight } from '../lib/useSingleFlight.ts'
 
 type Selected =
   | { status: 'none' }
@@ -58,6 +59,7 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const once = useSingleFlight()
 
   // الواجهة بتبعت الكود بس (الخادم بيقرر المدة والحالة). لو فشل بدء التجربة، الزائر بيوصل لصفحة
   // «ابدأ تجربة» برسالة بتقوله إن التسجيل تم والتجربة هي اللي لسه، والتسجيل نفسه ثابت.
@@ -76,14 +78,17 @@ export function RegisterPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    setError(null)
-    try {
-      await signUp({ companyName: companyName.trim(), email: email.trim(), password }, afterRegister)
-    } catch (caught) {
-      setError(registerErrorMessage(caught))
-      setBusy(false)
-    }
+    // نقرتين بسرعة كانوا هيبعتوا تسجيلين: التاني بيرجع «البريد مسجّل» بعد ما الأول نجح. القفل بيمنعه.
+    await once(async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        await signUp({ companyName: companyName.trim(), email: email.trim(), password }, afterRegister)
+      } catch (caught) {
+        setError(registerErrorMessage(caught))
+        setBusy(false)
+      }
+    })
   }
 
   return (

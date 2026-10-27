@@ -4,14 +4,28 @@ import { RegisterPage } from './auth/RegisterPage.tsx'
 import { useAuth } from './auth/auth-context.ts'
 import { AdminApp } from './catalog/AdminApp.tsx'
 import { CompanyApp } from './company/CompanyApp.tsx'
-import { usePublicRoute } from './lib/useRoute.ts'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { NotFoundPage } from './components/ErrorPage.tsx'
+import { OfflineBanner } from './components/OfflineBanner.tsx'
+import { isKnownPublicHash } from './lib/routes.ts'
+import { useHash, usePublicRoute } from './lib/useRoute.ts'
 import { PlansPage } from './public/PlansPage.tsx'
 
 function Gate() {
   const { state } = useAuth()
   const publicRoute = usePublicRoute()
+  const hash = useHash()
   if (state.status === 'loading') return <p className="boot muted">جاري التحميل…</p>
   if (state.status === 'anonymous') {
+    if (!isKnownPublicHash(hash)) {
+      return (
+        <main className="login">
+          <div className="login-card">
+            <NotFoundPage />
+          </div>
+        </main>
+      )
+    }
     if (publicRoute === 'plans') return <PlansPage />
     return publicRoute === 'register' ? <RegisterPage /> : <LoginPage />
   }
@@ -21,8 +35,11 @@ function Gate() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
+    <ErrorBoundary>
+      <OfflineBanner />
+      <AuthProvider>
+        <Gate />
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

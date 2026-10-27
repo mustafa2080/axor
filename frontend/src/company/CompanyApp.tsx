@@ -1,7 +1,9 @@
 import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
+import { NotFoundPage } from '../components/ErrorPage.tsx'
 import { tenantRoleLabel } from '../lib/labels.ts'
-import { useCompanyRoute } from '../lib/useRoute.ts'
+import { isKnownCompanyHash } from '../lib/routes.ts'
+import { useCompanyRoute, useHash } from '../lib/useRoute.ts'
 import { MySubscriptions } from './MySubscriptions.tsx'
 import { StartTrial } from './StartTrial.tsx'
 
@@ -12,6 +14,7 @@ import { StartTrial } from './StartTrial.tsx'
 export function CompanyApp({ user }: { user: SessionUser }) {
   const { signOut } = useAuth()
   const route = useCompanyRoute()
+  const known = isKnownCompanyHash(useHash())
   const canManage = user.kind === 'tenant' && user.role === 'owner'
 
   return (
@@ -19,10 +22,10 @@ export function CompanyApp({ user }: { user: SessionUser }) {
       <header className="topbar">
         <strong className="brand">AXOR</strong>
         <nav aria-label="التنقل الرئيسي">
-          <a href="#/" aria-current={route === 'subscriptions' ? 'page' : undefined}>
+          <a href="#/" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
             اشتراكاتي
           </a>
-          <a href="#/start" aria-current={route === 'start' ? 'page' : undefined}>
+          <a href="#/start" aria-current={known && route === 'start' ? 'page' : undefined}>
             ابدأ تجربة
           </a>
         </nav>
@@ -35,7 +38,13 @@ export function CompanyApp({ user }: { user: SessionUser }) {
         </div>
       </header>
       <main className="content">
-        {route === 'start' ? <StartTrial canManage={canManage} /> : <MySubscriptions canManage={canManage} />}
+        {!known ? (
+          <NotFoundPage />
+        ) : route === 'start' ? (
+          <StartTrial canManage={canManage} />
+        ) : (
+          <MySubscriptions canManage={canManage} />
+        )}
       </main>
     </>
   )

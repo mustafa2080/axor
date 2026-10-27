@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useAuth } from './auth-context.ts'
 import { ErrorNote, Field } from '../components/ui.tsx'
 import { errorMessage } from '../lib/labels.ts'
+import { useSingleFlight } from '../lib/useSingleFlight.ts'
 
 export function LoginPage() {
   const { signIn } = useAuth()
@@ -10,17 +11,21 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const once = useSingleFlight()
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    setBusy(true)
-    setError(null)
-    try {
-      await signIn(email.trim(), password)
-    } catch (caught) {
-      setError(errorMessage(caught, 'login'))
-      setBusy(false)
-    }
+    // Enter مرتين بسرعة بيسبق إعادة الرسم؛ القفل بيمنع طلب دخول تاني.
+    await once(async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        await signIn(email.trim(), password)
+      } catch (caught) {
+        setError(errorMessage(caught, 'login'))
+        setBusy(false)
+      }
+    })
   }
 
   return (

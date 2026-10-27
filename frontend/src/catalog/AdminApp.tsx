@@ -1,8 +1,10 @@
 import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
+import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
 import { ErrorNote } from '../components/ui.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
-import { useRoute } from '../lib/useRoute.ts'
+import { isKnownPlatformHash } from '../lib/routes.ts'
+import { useHash, useRoute } from '../lib/useRoute.ts'
 import { SubscriptionsPage } from '../subscriptions/SubscriptionsPage.tsx'
 import { ProductsPage } from './ProductsPage.tsx'
 import { PlansPage } from './PlansPage.tsx'
@@ -11,12 +13,12 @@ import { useCatalog } from './useCatalog.ts'
 function AccessDenied({ onSignOut }: { onSignOut: () => void }) {
   return (
     <main className="login">
-      <div className="login-card form">
-        <h1>مش مسموح</h1>
-        <p>اللوحة دي لمالك ومديري المنصة بس. الحساب ده ما عندوش الصلاحية.</p>
-        <button type="button" className="btn" onClick={onSignOut}>
-          خروج
-        </button>
+      <div className="login-card">
+        <ErrorPage kind="forbidden" message="اللوحة دي لمالك ومديري المنصة بس. الحساب ده ما عندوش الصلاحية.">
+          <button type="button" className="btn btn-primary" onClick={onSignOut}>
+            خروج
+          </button>
+        </ErrorPage>
       </div>
     </main>
   )
@@ -24,6 +26,7 @@ function AccessDenied({ onSignOut }: { onSignOut: () => void }) {
 
 function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const route = useRoute()
+  const known = isKnownPlatformHash(useHash())
   const { state, reload } = useCatalog()
 
   return (
@@ -31,13 +34,13 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       <header className="topbar">
         <strong className="brand">AXOR</strong>
         <nav aria-label="التنقل الرئيسي">
-          <a href="#/products" aria-current={route === 'products' ? 'page' : undefined}>
+          <a href="#/products" aria-current={known && route === 'products' ? 'page' : undefined}>
             الأنظمة والأنشطة
           </a>
-          <a href="#/plans" aria-current={route === 'plans' ? 'page' : undefined}>
+          <a href="#/plans" aria-current={known && route === 'plans' ? 'page' : undefined}>
             الباقات
           </a>
-          <a href="#/subscriptions" aria-current={route === 'subscriptions' ? 'page' : undefined}>
+          <a href="#/subscriptions" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
             الاشتراكات
           </a>
         </nav>
@@ -50,9 +53,10 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         </div>
       </header>
       <main className="content">
-        {route === 'subscriptions' ? <SubscriptionsPage /> : null}
-        {route !== 'subscriptions' && state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
-        {route !== 'subscriptions' && state.status === 'error' ? (
+        {!known ? <NotFoundPage /> : null}
+        {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
+        {known && route !== 'subscriptions' && state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+        {known && route !== 'subscriptions' && state.status === 'error' ? (
           <>
             <ErrorNote message={state.message} />
             <button type="button" className="btn" onClick={() => void reload()}>
@@ -60,10 +64,10 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             </button>
           </>
         ) : null}
-        {state.status === 'ready' && route === 'products' ? (
+        {known && state.status === 'ready' && route === 'products' ? (
           <ProductsPage products={state.products} reload={reload} />
         ) : null}
-        {state.status === 'ready' && route === 'plans' ? (
+        {known && state.status === 'ready' && route === 'plans' ? (
           <PlansPage products={state.products} reload={reload} />
         ) : null}
       </main>
