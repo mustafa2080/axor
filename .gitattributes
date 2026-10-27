@@ -1,0 +1,2 @@
+# Git hooks لازم تفضل LF حتى على ويندوز (autocrlf)، وإلا الـ shell مش هيقدر يشغّلها.
+.githooks/* text eol=lf

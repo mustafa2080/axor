@@ -1,0 +1,9 @@
+#!/bin/sh
+# pre-commit: بيمنع commit فيه كود بيكسر الـ lint أو الـ typecheck (ADR-0008).
+# سريع عن قصد (oxlint وtsc بس). الاختبارات والـ build الكاملين بيشتغلوا في `pnpm check` وفي الـ CI.
+# طوارئ فقط: `git commit --no-verify` بيتخطاه، والـ CI هيفضل يفحص كل حاجة.
+set -e
+
+echo "pre-commit: lint + typecheck..."
+pnpm lint
+pnpm typecheck

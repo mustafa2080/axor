@@ -37,6 +37,8 @@ pnpm dev:api          # الخادم على http://127.0.0.1:4000 (فحص: /api/
 | `pnpm build` | بناء كل المشاريع |
 | `pnpm check` | تشغيل typecheck ثم lint ثم test ثم build |
 
+> **فحص قبل الـ commit:** `pnpm install` بيفعّل `.githooks/pre-commit` تلقائياً، وهو بيشغّل `pnpm lint` و`pnpm typecheck`. التجاوز بـ `git commit --no-verify` ممكن، لكن الـ CI بيفحص كل push. تحديثات الاعتماديات بتيجي أسبوعياً من Dependabot (ADR-0008).
+
 ## قاعدة البيانات (MariaDB)
 
 ```powershell

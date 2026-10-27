@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || exit 0",
     "dev:web": "pnpm --filter frontend dev",
     "dev:api": "pnpm --filter backend dev",
     "db:migrate": "pnpm --filter backend db:migrate",

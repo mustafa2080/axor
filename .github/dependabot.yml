@@ -1,0 +1,38 @@
+# تحديث الاعتماديات آلياً (TASKS.md §20، ADR-0008). كل تحديث بيجي كـ Pull Request وبيشغّل الـ CI
+# (typecheck وlint وtest وbuild وaudit)، ومفيش حاجة بتتدمج من غير ما حد يراجعها.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /frontend
+      - /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Cairo
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # تحديثات minor وpatch في PR واحد عشان الضوضاء تقل؛ الـ major بيجي لوحده.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Cairo
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
