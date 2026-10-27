@@ -6,7 +6,7 @@
 ## القرار
 
 1. **Dependabot بدل Renovate:** مدمج في GitHub ومفيش حاجة نركّبها. الإعداد في `.github/dependabot.yml`.
-2. **اعتماديات npm:** فحص أسبوعي (الاثنين 06:00 بتوقيت القاهرة) للجذر و`frontend` و`backend`. تحديثات `minor` و`patch` بتتجمّع في PR واحد، وتحديثات `major` بتيجي PR لوحدها عشان تتراجع بعناية. حد أقصى 5 PRs مفتوحة. رسائل الـ commit بتبدأ بـ `chore(deps)`.
+2. **اعتماديات npm:** فحص أسبوعي (الاثنين 06:00 بتوقيت القاهرة) للجذر بس (`directory: /`). الـ lockfile واحد في الجذر (pnpm workspace)، فـ PR الجذر بيحدّث `package.json` في الجذر و`frontend` و`backend` مع الـ lockfile (اتأكد على أول تشغيل فعلي، PR #3). كنا كاتبين `/frontend` و`/backend` كمان، وطلع منهم PRs مكررة بتفشل في الـ CI (PRs #5–#8)، فاتشالوا. تحديثات `minor` و`patch` بتتجمّع في PR واحد، وتحديثات `major` بتيجي PR لوحدها عشان تتراجع بعناية. حد أقصى 5 PRs مفتوحة. رسائل الـ commit بتبدأ بـ `chore(deps)`.
 3. **GitHub Actions:** نفس الجدول، كل التحديثات في PR واحد، والبادئة `chore(ci)`.
 4. **مفيش دمج تلقائي:** كل PR بيشغّل الـ CI الموجود (`on: pull_request`) ولازم يعدّي قبل ما حد يدمجه.
 5. **pre-commit hook:** ملف `.githooks/pre-commit` بيشغّل `pnpm lint` ثم `pnpm typecheck` (أدوات سريعة: oxlint وtsc). الاختبارات والـ build مش في الـ hook عشان ما يبقاش بطيء؛ بتتفحص بـ `pnpm check` وفي الـ CI.
@@ -23,4 +23,4 @@
 
 - أي commit فيه خطأ lint أو typecheck بيتوقف محلياً قبل ما يستهلك دقيقة CI.
 - الاعتماديات بتتراجع أسبوعياً في PRs صغيرة، وأي تحديث بيتفحص بنفس الـ CI.
-- محدودية معروفة: إعداد Dependabot مش ممكن يتجرّب محلياً. هيتأكد فعلياً أول ما GitHub يقرأه بعد الـ push (صفحة Insights → Dependency graph → Dependabot).
+- إعداد Dependabot مش ممكن يتجرّب محلياً، فاتجرّب على GitHub بعد الـ push: فتح 8 PRs في أول دقائق (الأكشنز، minor/patch مجمّعة، وmajor لـ TypeScript و`@types/node`)، واتصلح تكرار المجلدات (البند 2). PRs الـ major (TypeScript 7 و`@types/node` 26) محتاجة قرار قبل الدمج ولا تتدمج تلقائياً.

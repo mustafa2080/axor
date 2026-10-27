@@ -4,10 +4,9 @@ version: 2
 
 updates:
   - package-ecosystem: npm
-    directories:
-      - /
-      - /frontend
-      - /backend
+    # pnpm workspace: one lockfile at the root covers frontend and backend. Listing them
+    # separately opens duplicate PRs that fail CI (seen on the first run, PRs #5-#8).
+    directory: /
     schedule:
       interval: weekly
       day: monday
