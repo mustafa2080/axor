@@ -5,7 +5,7 @@ import {
   listSubscriptions,
 } from '../api/subscriptions.ts'
 import type { AdminSubscription, SubscriptionStatus } from '../api/subscriptions.ts'
-import { Badge, ErrorNote } from '../components/ui.tsx'
+import { Badge, ErrorNote, Loading } from '../components/ui.tsx'
 import type { Tone } from '../components/ui.tsx'
 import { errorMessage, subscriptionStatusLabel } from '../lib/labels.ts'
 import { availableActions } from '../lib/subscription-actions.ts'
@@ -106,7 +106,7 @@ export function SubscriptionsPage() {
         </label>
       </div>
 
-      {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+      {state.status === 'loading' ? <Loading /> : null}
       {state.status === 'error' ? (
         <>
           <ErrorNote message={state.message} />

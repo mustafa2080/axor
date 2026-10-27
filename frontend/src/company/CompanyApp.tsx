@@ -1,6 +1,7 @@
 import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
 import { NotFoundPage } from '../components/ErrorPage.tsx'
+import { BrandMark } from '../components/ui.tsx'
 import { tenantRoleLabel } from '../lib/labels.ts'
 import { isKnownCompanyHash } from '../lib/routes.ts'
 import { useCompanyRoute, useHash } from '../lib/useRoute.ts'
@@ -20,7 +21,7 @@ export function CompanyApp({ user }: { user: SessionUser }) {
   return (
     <>
       <header className="topbar">
-        <strong className="brand">AXOR</strong>
+        <BrandMark />
         <nav aria-label="التنقل الرئيسي">
           <a href="#/" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
             اشتراكاتي

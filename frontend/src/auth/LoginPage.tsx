@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from './auth-context.ts'
-import { ErrorNote, Field } from '../components/ui.tsx'
+import { BrandMark, ErrorNote, Field } from '../components/ui.tsx'
 import { errorMessage } from '../lib/labels.ts'
 import { useSingleFlight } from '../lib/useSingleFlight.ts'
 
@@ -31,7 +31,9 @@ export function LoginPage() {
   return (
     <main className="login">
       <form className="login-card form" onSubmit={(event) => void submit(event)}>
-        <h1>AXOR</h1>
+        <h1>
+          <BrandMark />
+        </h1>
         <p className="muted">سجّل الدخول لحسابك.</p>
         <Field label="البريد الإلكتروني">
           <input

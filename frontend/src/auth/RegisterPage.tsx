@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { loadPublicCatalog, startTrial } from '../api/company.ts'
 import type { PublicPlan, PublicProduct } from '../api/company.ts'
 import { useAuth } from './auth-context.ts'
-import { ErrorNote, Field } from '../components/ui.tsx'
+import { BrandMark, ErrorNote, Field } from '../components/ui.tsx'
 import { buildOffers } from '../lib/company-offers.ts'
 import { registerErrorMessage } from '../lib/labels.ts'
 import { findOffer } from '../lib/plan-choice.ts'
@@ -94,7 +94,9 @@ export function RegisterPage() {
   return (
     <main className="login">
       <form className="login-card form" onSubmit={(event) => void submit(event)}>
-        <h1>AXOR</h1>
+        <h1>
+          <BrandMark />
+        </h1>
         <p className="muted">سجّل شركتك وابدأ تجربة مجانية.</p>
         {selected.status === 'valid' ? (
           <p className="notice">

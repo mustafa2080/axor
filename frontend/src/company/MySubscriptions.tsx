@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { cancelMySubscription, listMySubscriptions } from '../api/company.ts'
 import type { CompanySubscription } from '../api/company.ts'
 import type { SubscriptionStatus } from '../api/subscriptions.ts'
-import { Badge, ErrorNote, Modal } from '../components/ui.tsx'
+import { Badge, ErrorNote, Loading, Modal } from '../components/ui.tsx'
 import type { Tone } from '../components/ui.tsx'
 import { daysLeft } from '../lib/company-offers.ts'
 import { errorMessage, subscriptionStatusLabel } from '../lib/labels.ts'
@@ -119,7 +119,7 @@ export function MySubscriptions({ canManage }: { canManage: boolean }) {
         </a>
       </div>
 
-      {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+      {state.status === 'loading' ? <Loading /> : null}
       {state.status === 'error' ? (
         <>
           <ErrorNote message={state.message} />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { loadPublicCatalog } from '../api/company.ts'
-import { ErrorNote } from '../components/ui.tsx'
+import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
 import { OfferCards } from '../company/OfferCards.tsx'
 import { buildOffers } from '../lib/company-offers.ts'
 import type { Offers } from '../lib/company-offers.ts'
@@ -42,14 +42,16 @@ export function PlansPage() {
   return (
     <>
       <header className="topbar">
-        <strong className="brand">AXOR</strong>
+        <BrandMark />
         <nav aria-label="التنقل">
           <a href="#/plans" aria-current="page">
             الباقات
           </a>
         </nav>
         <div className="user">
-          <a href="#/login">دخول</a>
+          <a className="btn btn-small" href="#/login">
+            دخول
+          </a>
         </div>
       </header>
       <main className="content">
@@ -57,7 +59,7 @@ export function PlansPage() {
           <h1>اختار الباقة وابدأ تجربة مجانية</h1>
         </div>
 
-        {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+        {state.status === 'loading' ? <Loading /> : null}
         {state.status === 'error' ? (
           <>
             <ErrorNote message={state.message} />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listMySubscriptions, loadPublicCatalog, startTrial } from '../api/company.ts'
 import type { PublicPlan, PublicProduct } from '../api/company.ts'
-import { ErrorNote, Modal } from '../components/ui.tsx'
+import { ErrorNote, Loading, Modal } from '../components/ui.tsx'
 import { buildOffers } from '../lib/company-offers.ts'
 import type { Offers } from '../lib/company-offers.ts'
 import { errorMessage } from '../lib/labels.ts'
@@ -100,7 +100,7 @@ export function StartTrial({ canManage }: { canManage: boolean }) {
         </p>
       ) : null}
 
-      {state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+      {state.status === 'loading' ? <Loading /> : null}
       {state.status === 'error' ? (
         <>
           <ErrorNote message={state.message} />

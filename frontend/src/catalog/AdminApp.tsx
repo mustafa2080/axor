@@ -1,7 +1,7 @@
 import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
 import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
-import { ErrorNote } from '../components/ui.tsx'
+import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
@@ -32,7 +32,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   return (
     <>
       <header className="topbar">
-        <strong className="brand">AXOR</strong>
+        <BrandMark />
         <nav aria-label="التنقل الرئيسي">
           <a href="#/products" aria-current={known && route === 'products' ? 'page' : undefined}>
             الأنظمة والأنشطة
@@ -55,7 +55,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       <main className="content">
         {!known ? <NotFoundPage /> : null}
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
-        {known && route !== 'subscriptions' && state.status === 'loading' ? <p className="muted">جاري التحميل…</p> : null}
+        {known && route !== 'subscriptions' && state.status === 'loading' ? <Loading /> : null}
         {known && route !== 'subscriptions' && state.status === 'error' ? (
           <>
             <ErrorNote message={state.message} />
