@@ -1,0 +1,5 @@
+{
+  "0000_baseline": "06d75cc843166f2d86c6bccd194730896b522d37dcf2dbf552904e2f335badab",
+  "0001_initial_schema": "f8d1b3d4e2dd5c2a69aa649c4bd39158f222bffe295d0479f12e66ee012ad9f1",
+  "0002_add_password_changed_at": "fe15efee9b1a047c485f4566650939a15980908c4d0e78d3d5e83d751ad504e2"
+}

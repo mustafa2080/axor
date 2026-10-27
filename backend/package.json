@@ -11,6 +11,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
+    "db:lock": "tsx src/scripts/lock-migrations.ts",
     "db:migrate": "tsx --env-file-if-exists=../.env src/database/migrate-cli.ts",
     "create:platform-user": "tsx --env-file-if-exists=../.env src/scripts/create-platform-user.ts"
   },

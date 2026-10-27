@@ -44,8 +44,10 @@ pnpm dev:api          # الخادم على http://127.0.0.1:4000 (فحص: /api/
 ```powershell
 pnpm db:migrate       # يطبّق الـ migrations على DATABASE_URL (الموجود في .env)
 pnpm db:generate      # يولّد migration جديدة من المخطط بعد تعديل backend/src/database/schema
+pnpm db:lock          # يسجّل checksum الـ migration الجديدة (إجباري بعد db:generate)
 ```
 
+- الـ migrations للأمام بس ومبتتعدّلش بعد الـ commit (ADR-0009)؛ أي أمر مدمّر (`DROP` وغيره) محتاج سطر `-- destructive-approved: <السبب>`. `pnpm test` بيفحص ده.
 - التطوير على `axor_dev`، والاختبارات بتتحول تلقائياً لـ `axor_test` (مش بتلمس بيانات التطوير أبداً).
 - `/api/v1/health` للـ liveness، و`/api/v1/health/ready` بيفحص الاتصال بقاعدة البيانات.
 
