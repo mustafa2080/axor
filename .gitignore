@@ -15,6 +15,12 @@ coverage/
 *.pem
 *.key
 
+# Database backups (contain emails and password hashes). Migrations (0000_*.sql) are NOT matched.
+axor_*.sql
+*.sql.gz
+*.sql.enc
+*.dump
+
 # Logs
 *.log
 npm-debug.log*
