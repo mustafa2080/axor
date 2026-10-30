@@ -17,6 +17,8 @@ import { catalogAdminRoutes } from './modules/admin/catalog-admin.routes.js';
 import type { SubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
 import { subscriptionsAdminRoutes } from './modules/admin/subscriptions-admin.routes.js';
 import { subscriptionsRoutes } from './modules/subscriptions/subscriptions.routes.js';
+import type { AuditAdminRepository } from './database/repositories/audit-admin.repository.js';
+import { auditAdminRoutes } from './modules/admin/audit-admin.routes.js';
 
 export type AppDeps = HealthDeps & {
   /** Optional so that tests of unrelated parts do not need a database. */
@@ -26,6 +28,8 @@ export type AppDeps = HealthDeps & {
   catalogAdmin?: CatalogAdminRepository;
   /** Trials and subscriptions, for companies and for platform staff. Needs `auth` too. */
   subscriptions?: SubscriptionsRepository;
+  /** Read-only audit trail for platform staff. Needs `auth` too. */
+  auditAdmin?: AuditAdminRepository;
 };
 
 export interface AppOptions {
@@ -172,6 +176,9 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     void app.register(subscriptionsAdminRoutes(deps.auth, deps.subscriptions), {
       prefix: '/api/v1',
     });
+  }
+  if (deps.auth !== undefined && deps.auditAdmin !== undefined) {
+    void app.register(auditAdminRoutes(deps.auth, deps.auditAdmin), { prefix: '/api/v1' });
   }
   if (deps.catalog !== undefined) {
     void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });

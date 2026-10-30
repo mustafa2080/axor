@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { createDatabase } from './database/client.js';
+import { createAuditAdminRepository } from './database/repositories/audit-admin.repository.js';
 import { createCatalogAdminRepository } from './database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from './database/repositories/catalog.repository.js';
 import { createSubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
@@ -30,6 +31,7 @@ const app = buildApp(env, {
   catalog,
   catalogAdmin,
   subscriptions,
+  auditAdmin: createAuditAdminRepository(database.db),
 });
 
 // Makes the stored status catch up with end dates (ADR-0007). Access itself never waits for it.

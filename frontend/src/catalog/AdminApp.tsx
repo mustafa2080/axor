@@ -1,4 +1,5 @@
 import { useAuth } from '../auth/auth-context.ts'
+import { AuditPage } from '../audit/AuditPage.tsx'
 import type { SessionUser } from '../api/client.ts'
 import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
 import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
@@ -28,6 +29,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const route = useRoute()
   const known = isKnownPlatformHash(useHash())
   const { state, reload } = useCatalog()
+  const catalogRoute = route === 'products' || route === 'plans'
 
   return (
     <>
@@ -43,6 +45,9 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <a href="#/subscriptions" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
             الاشتراكات
           </a>
+          <a href="#/audit" aria-current={known && route === 'audit' ? 'page' : undefined}>
+            سجل التدقيق
+          </a>
         </nav>
         <div className="user">
           <span className="ltr">{user.email}</span>
@@ -55,8 +60,9 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       <main className="content">
         {!known ? <NotFoundPage /> : null}
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
-        {known && route !== 'subscriptions' && state.status === 'loading' ? <Loading /> : null}
-        {known && route !== 'subscriptions' && state.status === 'error' ? (
+        {known && route === 'audit' ? <AuditPage /> : null}
+        {known && catalogRoute && state.status === 'loading' ? <Loading /> : null}
+        {known && catalogRoute && state.status === 'error' ? (
           <>
             <ErrorNote message={state.message} />
             <button type="button" className="btn" onClick={() => void reload()}>

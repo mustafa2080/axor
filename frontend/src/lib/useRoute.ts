@@ -3,7 +3,7 @@ import { parsePlanChoice } from './plan-choice.ts'
 import type { PlanChoice } from './plan-choice.ts'
 import { hashPath } from './routes.ts'
 
-export type Route = 'products' | 'plans' | 'subscriptions'
+export type Route = 'products' | 'plans' | 'subscriptions' | 'audit'
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener('hashchange', callback)
@@ -20,6 +20,7 @@ export function useRoute(): Route {
   const path = hashPath(hash)
   if (path === '#/plans') return 'plans'
   if (path === '#/subscriptions') return 'subscriptions'
+  if (path === '#/audit') return 'audit'
   return 'products'
 }
 

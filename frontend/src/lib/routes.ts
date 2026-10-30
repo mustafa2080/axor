@@ -5,7 +5,7 @@ const HOME = new Set(['', '#', '#/'])
 // روابط عامة (قبل الدخول). لو مستخدم مسجّل فتحها بيرجع للرئيسية بدل 404 (رابط تسويقي قديم مثلاً).
 const PUBLIC = new Set(['#/login', '#/register', '#/plans'])
 const COMPANY = new Set(['#/start'])
-const PLATFORM = new Set(['#/products', '#/plans', '#/subscriptions'])
+const PLATFORM = new Set(['#/products', '#/plans', '#/subscriptions', '#/audit'])
 
 /** المسار من غير الـ query: '#/register?plan=x' ← '#/register'. */
 export function hashPath(hash: string): string {
