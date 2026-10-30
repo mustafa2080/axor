@@ -99,7 +99,11 @@ export function SubscriptionActionModal({
 
         <ErrorNote message={error} />
         <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={busy}>
+          <button
+            type="submit"
+            className={action === 'cancel' ? 'btn btn-danger' : 'btn btn-primary'}
+            disabled={busy}
+          >
             {busy ? 'جاري التنفيذ…' : action === 'cancel' ? 'تأكيد الإلغاء' : 'تأكيد'}
           </button>
           <button type="button" className="btn" onClick={onClose} disabled={busy}>

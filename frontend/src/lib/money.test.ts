@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_PRICE_MINOR,
   currencyExponent,
+  formatPrice,
   minorToMajorString,
   parseMajorToMinor,
 } from './money.ts'
@@ -51,5 +52,19 @@ describe('currencyExponent', () => {
     expect(currencyExponent('EGP')).toBe(2)
     expect(currencyExponent('JPY')).toBe(0)
     expect(currencyExponent('KWD')).toBe(3)
+  })
+})
+
+// Regression: السعر كان بيظهر بأرقام هندية (١٠٠٫٠٠) وباقي الصفحة (التواريخ والأيام والحدود) لاتينية.
+describe('formatPrice', () => {
+  it('uses Latin digits like the rest of the UI', () => {
+    const text = formatPrice(10000, 'EGP')
+    expect(text).not.toMatch(/[٠-٩]/)
+    expect(text).toContain('100')
+  })
+
+  it('keeps the minor-unit precision', () => {
+    expect(formatPrice(19950, 'EGP')).toMatch(/199\D50/)
+    expect(formatPrice(700, 'JPY')).toContain('700')
   })
 })

@@ -7,7 +7,7 @@ import { formatPrice } from '../lib/money.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
 import { NewPlanModal, NewVersionModal } from './PlanModals.tsx'
 
-const formatDate = (iso: string) => new Date(iso).toLocaleString('ar-EG')
+const formatDate = (iso: string) => new Date(iso).toLocaleString('ar-EG-u-nu-latn')
 
 function Terms({ version }: { version: PlanVersion }) {
   const limits = Object.entries(version.limits)

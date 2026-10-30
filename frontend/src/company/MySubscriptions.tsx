@@ -82,7 +82,7 @@ function CancelModal({
         </p>
         <ErrorNote message={error} />
         <div className="form-actions">
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void confirm()}>
+          <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void confirm()}>
             {busy ? 'جاري الإلغاء…' : 'تأكيد الإلغاء'}
           </button>
           <button type="button" className="btn" disabled={busy} onClick={onClose}>

@@ -471,6 +471,16 @@ a.btn {
   background: var(--accent-hover);
   box-shadow: 0 1px 3px rgb(16 24 40 / 0.28);
 }
+/* إجراء بيقفل الوصول أو مش بيترجع بسهولة (إلغاء الاشتراك). نفس مقاس الزرار الرئيسي بلون التحذير. */
+.btn-danger {
+  color: var(--accent-text);
+  background: var(--danger);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.2);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--danger) 88%, var(--text));
+  box-shadow: 0 1px 3px rgb(16 24 40 / 0.28);
+}
 .btn-small {
   min-height: 32px;
   padding: 0 0.75rem;

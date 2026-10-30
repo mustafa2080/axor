@@ -37,12 +37,12 @@ export function minorToMajorString(minor: number, exponent: number): string {
   return `${padded.slice(0, -exponent)}.${padded.slice(-exponent)}`
 }
 
-/** للعرض فقط (مش للحسابات): "١٩٩٫٥٠ ج.م.‏" */
+/** للعرض فقط (مش للحسابات): "199.50 ج.م.‏". الأرقام لاتينية زي باقي الواجهة (التواريخ والحدود والأكواد). */
 export function formatPrice(minor: number, currency: string): string {
   const exponent = currencyExponent(currency)
   const major = Number(minorToMajorString(minor, exponent))
   try {
-    return new Intl.NumberFormat('ar-EG', { style: 'currency', currency }).format(major)
+    return new Intl.NumberFormat('ar-EG-u-nu-latn', { style: 'currency', currency }).format(major)
   } catch {
     return `${minorToMajorString(minor, exponent)} ${currency}`
   }
