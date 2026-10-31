@@ -16,7 +16,7 @@
 
 - سجل خاص بكل شركة يشوفه مالكها (الصلاحية `audit:read` للشركات موجودة، لكن مفيش endpoint لحد دلوقتي).
 - التصدير، والبحث النصي، وفلتر بالتاريخ.
-- `subscription.expired` (الانتهاء الآلي) بيتسجل في `subscription_events` بس، مش في `audit_logs`.
+- ~~`subscription.expired` (الانتهاء الآلي) بيتسجل في `subscription_events` بس~~ اتنفّذ (2026-10-31): بيتسجل كمان في `audit_logs` بمنفّذ فاضي (النظام) في نفس transaction الانتهاء.
 
 ## النتائج
 

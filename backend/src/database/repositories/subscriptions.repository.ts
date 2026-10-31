@@ -490,6 +490,39 @@ export function createSubscriptionsRepository(
               actorUserId: null,
             })),
           );
+          // The automatic end is part of the audit trail too (actor null = the system), so a
+          // company's history shows why its access stopped. Codes are read after the rows are
+          // locked and without locking products or plans.
+          const dueIds = due.map((row) => row.id);
+          const named = await tx
+            .select({ id: subscriptions.id, productCode: products.code, planCode: plans.code })
+            .from(subscriptions)
+            .innerJoin(products, eq(products.id, subscriptions.productId))
+            .innerJoin(plans, eq(plans.id, subscriptions.planId))
+            .where(inArray(subscriptions.id, dueIds));
+          const namesById = new Map(named.map((row) => [row.id, row]));
+          await tx.insert(auditLogs).values(
+            due.map((row) => {
+              const names = namesById.get(row.id);
+              const metadata = {
+                productCode: names?.productCode ?? null,
+                planCode: names?.planCode ?? null,
+                from: row.status,
+                to: 'expired',
+              };
+              assertSafeMetadata(metadata);
+              return {
+                id: uuidv7(),
+                tenantId: row.tenantId,
+                actorUserId: null,
+                action: 'subscription.expired',
+                targetType: 'subscription',
+                targetId: row.id,
+                metadata,
+                requestId: null,
+              };
+            }),
+          );
           return due.length;
         });
         total += count;

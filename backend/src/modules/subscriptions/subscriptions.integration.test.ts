@@ -418,6 +418,20 @@ describe('expiry', () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ fromStatus: 'trialing', toStatus: 'expired', actorUserId: null });
 
+    // The automatic end also lands in the audit trail, once, with the system as the actor.
+    const expiredAudit = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.action, 'subscription.expired'));
+    expect(expiredAudit).toHaveLength(1);
+    expect(expiredAudit[0]).toMatchObject({
+      tenantId: ids.tenantA,
+      actorUserId: null,
+      targetType: 'subscription',
+      targetId: events[0]?.subscriptionId,
+      metadata: { productCode: 'stark', from: 'trialing', to: 'expired' },
+    });
+
     expect(await repo.expireDue()).toBe(0);
     expect(await db.select().from(schema.subscriptionEvents)).toHaveLength(2);
   });
