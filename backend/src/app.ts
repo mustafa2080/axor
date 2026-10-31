@@ -19,6 +19,10 @@ import { subscriptionsAdminRoutes } from './modules/admin/subscriptions-admin.ro
 import { subscriptionsRoutes } from './modules/subscriptions/subscriptions.routes.js';
 import type { AuditAdminRepository } from './database/repositories/audit-admin.repository.js';
 import { auditAdminRoutes } from './modules/admin/audit-admin.routes.js';
+import type { MembersRepository } from './database/repositories/members.repository.js';
+import { membersRoutes } from './modules/members/members.routes.js';
+import type { TenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
+import { tenantsAdminRoutes } from './modules/admin/tenants-admin.routes.js';
 
 export type AppDeps = HealthDeps & {
   /** Optional so that tests of unrelated parts do not need a database. */
@@ -30,6 +34,10 @@ export type AppDeps = HealthDeps & {
   subscriptions?: SubscriptionsRepository;
   /** Read-only audit trail for platform staff. Needs `auth` too. */
   auditAdmin?: AuditAdminRepository;
+  /** A company's own members (list, role, disable/enable). Needs `auth` too. */
+  members?: MembersRepository;
+  /** Companies for platform staff (list, suspend, reactivate). Needs `auth` too. */
+  tenantsAdmin?: TenantsAdminRepository;
 };
 
 export interface AppOptions {
@@ -179,6 +187,12 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   }
   if (deps.auth !== undefined && deps.auditAdmin !== undefined) {
     void app.register(auditAdminRoutes(deps.auth, deps.auditAdmin), { prefix: '/api/v1' });
+  }
+  if (deps.auth !== undefined && deps.members !== undefined) {
+    void app.register(membersRoutes(deps.auth, deps.members), { prefix: '/api/v1' });
+  }
+  if (deps.auth !== undefined && deps.tenantsAdmin !== undefined) {
+    void app.register(tenantsAdminRoutes(deps.auth, deps.tenantsAdmin), { prefix: '/api/v1' });
   }
   if (deps.catalog !== undefined) {
     void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });

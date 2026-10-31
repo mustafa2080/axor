@@ -4,9 +4,12 @@ import { uuidv7 } from '../common/id.js';
 import { loadEnv } from '../config/env.js';
 import { createDatabase } from '../database/client.js';
 import { runMigrations } from '../database/migrate.js';
+import { createAuditAdminRepository } from '../database/repositories/audit-admin.repository.js';
 import { createCatalogAdminRepository } from '../database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from '../database/repositories/catalog.repository.js';
+import { createMembersRepository } from '../database/repositories/members.repository.js';
 import { createSubscriptionsRepository } from '../database/repositories/subscriptions.repository.js';
+import { createTenantsAdminRepository } from '../database/repositories/tenants-admin.repository.js';
 import * as schema from '../database/schema/index.js';
 import { truncateDomainTables } from '../test/db-helpers.js';
 import { createAccessTokenService } from './auth/access-token.js';
@@ -51,6 +54,11 @@ const RULES = {
   'staff-reads-subscriptions': ['platformOwner', 'platformAdmin', 'platformSupport'],
   'staff-manages-subscriptions': ['platformOwner', 'platformAdmin'],
   'staff-manages-catalog': ['platformOwner', 'platformAdmin'],
+  'staff-reads-audit': ['platformOwner', 'platformAdmin'],
+  'company-reads-members': ['tenantOwner', 'tenantAdmin', 'tenantMember'],
+  'company-manages-members': ['tenantOwner', 'tenantAdmin'],
+  'staff-reads-tenants': ['platformOwner', 'platformAdmin', 'platformSupport'],
+  'staff-manages-tenants': ['platformOwner', 'platformAdmin'],
 } satisfies Record<string, Caller[]>;
 type Rule = keyof typeof RULES;
 
@@ -81,6 +89,14 @@ const INVENTORY: Record<string, Rule | typeof PUBLIC> = {
   'POST /api/v1/admin/catalog/products/:id/plans': 'staff-manages-catalog',
   'POST /api/v1/admin/catalog/plans/:id/versions': 'staff-manages-catalog',
   'PATCH /api/v1/admin/catalog/plans/:id': 'staff-manages-catalog',
+  'GET /api/v1/admin/audit-logs': 'staff-reads-audit',
+  'GET /api/v1/members': 'company-reads-members',
+  'PATCH /api/v1/members/:id/role': 'company-manages-members',
+  'POST /api/v1/members/:id/disable': 'company-manages-members',
+  'POST /api/v1/members/:id/enable': 'company-manages-members',
+  'GET /api/v1/admin/tenants': 'staff-reads-tenants',
+  'POST /api/v1/admin/tenants/:id/suspend': 'staff-manages-tenants',
+  'POST /api/v1/admin/tenants/:id/reactivate': 'staff-manages-tenants',
 };
 
 type Method = 'GET' | 'POST' | 'PATCH';
@@ -108,6 +124,9 @@ function newApp() {
     catalog: createCatalogRepository(db),
     catalogAdmin: createCatalogAdminRepository(db),
     subscriptions: createSubscriptionsRepository(db),
+    auditAdmin: createAuditAdminRepository(db),
+    members: createMembersRepository(db),
+    tenantsAdmin: createTenantsAdminRepository(db),
   });
 }
 
@@ -231,7 +250,15 @@ describe.each(protectedRoutes)('%s (%s)', (key, rule) => {
 });
 
 describe('HEAD requests', () => {
-  it.each(['/auth/me', '/subscriptions', '/admin/subscriptions', '/admin/catalog'])(
+  it.each([
+    '/auth/me',
+    '/subscriptions',
+    '/members',
+    '/admin/subscriptions',
+    '/admin/catalog',
+    '/admin/tenants',
+    '/admin/audit-logs',
+  ])(
     'cannot bypass authentication on %s',
     async (path) => {
       const res = await app.inject({ method: 'HEAD', url: `/api/v1${path}` });
