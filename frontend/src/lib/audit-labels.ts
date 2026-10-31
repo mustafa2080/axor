@@ -7,6 +7,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'auth.refresh_reuse_detected': 'اشتباه في سرقة جلسة',
   'auth.password_changed': 'تغيير كلمة المرور',
   'auth.password_change_failed': 'محاولة فاشلة لتغيير كلمة المرور',
+  'auth.profile_updated': 'تعديل الملف الشخصي',
   'tenant.registered': 'تسجيل شركة جديدة',
   'tenant.suspended': 'تعليق شركة',
   'tenant.reactivated': 'إعادة تفعيل شركة',

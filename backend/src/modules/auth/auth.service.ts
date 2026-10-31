@@ -33,6 +33,7 @@ export interface AuthContext {
 export interface AuthenticatedUser {
   principal: Principal;
   email: string;
+  fullName: string | null;
 }
 
 export interface SessionTokens {
@@ -173,7 +174,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       accessTokenExpiresAt: access.expiresAt,
       refreshToken: refresh.token,
       refreshTokenExpiresAt: refresh.expiresAt,
-      user: { principal, email: loaded.user.email },
+      user: { principal, email: loaded.user.email, fullName: loaded.user.fullName },
     };
   }
 
@@ -379,6 +380,34 @@ export function createAuthService(deps: AuthServiceDeps) {
       return openSession(updated, ctx);
     },
 
+    /**
+     * Sets or clears the signed-in person's own display name (ADR-0013). The audit row records
+     * that the name changed, never the name itself.
+     */
+    async updateProfile(
+      userId: string,
+      input: { fullName: string | null },
+      ctx: AuthContext,
+    ): Promise<AuthenticatedUser> {
+      const loaded = await loadUser(eq(users.id, userId));
+      if (loaded === null || !mayAuthenticate(loaded)) throw invalidSession();
+      await db.update(users).set({ fullName: input.fullName }).where(eq(users.id, userId));
+      await recordAudit(
+        {
+          action: 'auth.profile_updated',
+          userId,
+          tenantId: loaded.user.tenantId,
+          metadata: { field: 'full_name', cleared: input.fullName === null },
+        },
+        ctx,
+        { wait: true },
+      );
+      const updated = await loadUser(eq(users.id, userId));
+      const principal = updated === null ? null : toPrincipal(updated.user);
+      if (updated === null || principal === null) throw invalidSession();
+      return { principal, email: updated.user.email, fullName: updated.user.fullName };
+    },
+
     async refresh(token: string, ctx: AuthContext): Promise<SessionTokens> {
       const next = generateRefreshToken();
       const expiresAt = refreshExpiry();
@@ -453,7 +482,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       ) {
         throw unauthorized('Invalid or expired token');
       }
-      return { principal, email: loaded.user.email };
+      return { principal, email: loaded.user.email, fullName: loaded.user.fullName };
     },
   };
 }

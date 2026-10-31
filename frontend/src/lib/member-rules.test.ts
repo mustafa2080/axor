@@ -5,6 +5,7 @@ import { assignableRoles, canManageMember, memberActions, normalizeReason } from
 const member = (overrides: Partial<Member>): Member => ({
   id: 'u2',
   email: 'm@example.test',
+  fullName: null,
   status: 'active',
   tenantRole: 'member',
   emailVerifiedAt: null,

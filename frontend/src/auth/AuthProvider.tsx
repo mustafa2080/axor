@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { login, logout, refreshSession, registerCompany, setSessionLostHandler } from '../api/client.ts'
+import type { SessionUser } from '../api/client.ts'
 import { AuthContext } from './auth-context.ts'
 import type { AuthContextValue, AuthState } from './auth-context.ts'
 
@@ -57,9 +58,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const replaceUser = useCallback((user: SessionUser) => {
+    // لو الجلسة انتهت أثناء الحفظ (anonymous) أو اتبدّل المستخدم، الرد القديم ما يرجّعش حد مسجّل دخول.
+    setState((current) =>
+      current.status === 'authenticated' && current.user.id === user.id
+        ? { status: 'authenticated', user }
+        : current,
+    )
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ state, signIn, signUp, signOut }),
-    [state, signIn, signUp, signOut],
+    () => ({ state, signIn, signUp, signOut, replaceUser }),
+    [state, signIn, signUp, signOut, replaceUser],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

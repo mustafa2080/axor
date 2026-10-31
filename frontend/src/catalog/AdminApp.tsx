@@ -3,6 +3,7 @@ import { AuditPage } from '../audit/AuditPage.tsx'
 import type { SessionUser } from '../api/client.ts'
 import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
 import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
+import { UserBar } from '../components/UserBar.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
@@ -53,13 +54,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             سجل التدقيق
           </a>
         </nav>
-        <div className="user">
-          <span className="ltr">{user.email}</span>
-          <span className="muted">{platformRoleLabel[user.role] ?? user.role}</span>
-          <button type="button" className="btn btn-small" onClick={onSignOut}>
-            خروج
-          </button>
-        </div>
+        <UserBar user={user} roleLabel={platformRoleLabel[user.role] ?? user.role} onSignOut={onSignOut} />
       </header>
       <main className="content">
         {!known ? <NotFoundPage /> : null}

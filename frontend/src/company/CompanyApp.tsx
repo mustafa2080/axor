@@ -2,6 +2,7 @@ import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
 import { NotFoundPage } from '../components/ErrorPage.tsx'
 import { BrandMark } from '../components/ui.tsx'
+import { UserBar } from '../components/UserBar.tsx'
 import { tenantRoleLabel } from '../lib/labels.ts'
 import { isKnownCompanyHash } from '../lib/routes.ts'
 import { useCompanyRoute, useHash } from '../lib/useRoute.ts'
@@ -38,13 +39,7 @@ export function CompanyApp({ user }: { user: SessionUser }) {
             </a>
           ) : null}
         </nav>
-        <div className="user">
-          <span className="ltr">{user.email}</span>
-          <span className="muted">{tenantRoleLabel[user.role] ?? user.role}</span>
-          <button type="button" className="btn btn-small" onClick={() => void signOut()}>
-            خروج
-          </button>
-        </div>
+        <UserBar user={user} roleLabel={tenantRoleLabel[user.role] ?? user.role} onSignOut={() => void signOut()} />
       </header>
       <main className="content">
         {!known ? (

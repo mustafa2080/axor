@@ -18,6 +18,8 @@ export interface AuthContextValue {
     afterRegister?: () => Promise<void>,
   ) => Promise<void>
   signOut: () => Promise<void>
+  /** بعد تعديل الملف الشخصي: بيحدّث بيانات المستخدم المعروضة من غير إعادة دخول. */
+  replaceUser: (user: SessionUser) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

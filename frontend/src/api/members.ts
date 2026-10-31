@@ -8,6 +8,8 @@ export type MemberStatus = 'active' | 'invited' | 'disabled'
 export interface Member {
   id: string
   email: string
+  /** الاسم اللي العضو اختاره لنفسه؛ null لو ما حطّش اسم. */
+  fullName: string | null
   status: MemberStatus
   tenantRole: TenantRole
   emailVerifiedAt: string | null

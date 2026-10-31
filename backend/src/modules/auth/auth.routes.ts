@@ -42,10 +42,29 @@ const changePasswordBody = z.strictObject({
 
 const COOKIE_PATH = '/api/v1/auth';
 
-function publicUser({ principal, email }: AuthenticatedUser) {
+// Only the display name can be edited here. Strict: email, role, status... are rejected, not ignored.
+// An empty or null name clears it. Control characters are refused so the name is safe to render.
+const updateProfileBody = z.strictObject({
+  fullName: z
+    .string()
+    .trim()
+    .max(100)
+    .refine(
+      (value) =>
+        [...value].every((char) => {
+          const code = char.codePointAt(0) ?? 0;
+          return code > 31 && code !== 127;
+        }),
+      'Name has invalid characters',
+    )
+    .nullable(),
+});
+
+function publicUser({ principal, email, fullName }: AuthenticatedUser) {
   return {
     id: principal.userId,
     email,
+    fullName,
     kind: principal.kind,
     role: principal.role,
     tenantId: principal.kind === 'tenant' ? principal.tenantId : null,
@@ -155,6 +174,15 @@ export function authRoutes(auth: AuthService, env: Env) {
     app.get('/auth/me', { preHandler: authenticate }, async (request) => {
       if (request.auth === undefined) throw unauthorized();
       return ok(publicUser(request.auth));
+    });
+
+    app.patch('/auth/me', { preHandler: authenticate }, async (request) => {
+      requireTrustedOrigin(request);
+      if (request.auth === undefined) throw unauthorized();
+      const body = parseInput(updateProfileBody, request.body);
+      const fullName = body.fullName === null || body.fullName === '' ? null : body.fullName;
+      const user = await auth.updateProfile(request.auth.principal.userId, { fullName }, contextOf(request));
+      return ok(publicUser(user));
     });
   };
 }

@@ -12,6 +12,8 @@ export const users = mysqlTable(
     email: varchar('email', { length: 320 }).notNull(),
     /** Argon2id hash. Null for an invited user who has not set a password yet. */
     passwordHash: varchar('password_hash', { length: 255 }),
+    /** Optional display name the person chose for themselves (ADR-0013). Never used for login. */
+    fullName: varchar('full_name', { length: 100 }),
     status: varchar('status', { length: 20 }).$type<UserStatus>().notNull().default('active'),
     /** A user belongs to at most one company (ADR-0003 #1). Null for platform staff. */
     tenantId: uuidRef('tenant_id').references(() => tenants.id),

@@ -73,6 +73,7 @@ const INVENTORY: Record<string, Rule | typeof PUBLIC> = {
   'POST /api/v1/auth/refresh': PUBLIC,
   'POST /api/v1/auth/logout': PUBLIC,
   'GET /api/v1/auth/me': 'signed-in',
+  'PATCH /api/v1/auth/me': 'signed-in',
   'POST /api/v1/auth/change-password': 'signed-in',
   'GET /api/v1/subscriptions': 'company-reads-subscriptions',
   'POST /api/v1/subscriptions/trial': 'company-manages-subscriptions',

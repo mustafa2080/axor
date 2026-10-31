@@ -125,6 +125,7 @@ export function MembersPage({ user }: { user: SessionUser }) {
             <table className="table">
               <thead>
                 <tr>
+                  <th>الاسم</th>
                   <th>البريد</th>
                   <th>الدور</th>
                   <th>الحالة</th>
@@ -138,6 +139,7 @@ export function MembersPage({ user }: { user: SessionUser }) {
                   const roles = assignableRoles(actor.role, item.tenantRole)
                   return (
                     <tr key={item.id}>
+                      <td>{item.fullName ?? <span className="muted">—</span>}</td>
                       <td>
                         <span className="ltr">{item.email}</span>
                         {item.id === user.id ? <span className="muted"> (أنت)</span> : null}

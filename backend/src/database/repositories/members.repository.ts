@@ -23,6 +23,7 @@ type Tx = Parameters<Parameters<Database['db']['transaction']>[0]>[0];
 const publicColumns = {
   id: users.id,
   email: users.email,
+  fullName: users.fullName,
   status: users.status,
   tenantRole: users.tenantRole,
   emailVerifiedAt: users.emailVerifiedAt,
@@ -32,6 +33,7 @@ const publicColumns = {
 export interface MemberView {
   id: string;
   email: string;
+  fullName: string | null;
   status: UserStatus;
   tenantRole: TenantRole;
   emailVerifiedAt: Date | null;

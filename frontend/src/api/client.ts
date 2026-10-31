@@ -6,6 +6,8 @@ const BASE = '/api/v1'
 export interface SessionUser {
   id: string
   email: string
+  /** الاسم اللي الشخص اختاره لنفسه (اختياري). مش بيُستخدم في الدخول. */
+  fullName: string | null
   kind: 'platform' | 'tenant'
   role: string
   tenantId: string | null
@@ -122,6 +124,11 @@ export async function logout(): Promise<void> {
   } finally {
     accessToken = null
   }
+}
+
+/** تعديل اسم الشخص لنفسه (PATCH /auth/me). null بيمسح الاسم. بيرجع بيانات المستخدم المحدّثة. */
+export function updateProfile(fullName: string | null): Promise<SessionUser> {
+  return api<SessionUser>('PATCH', '/auth/me', { fullName })
 }
 
 /** طلب موثّق. لو رجع 401 بيجدد الجلسة مرة واحدة ويعيد الطلب، ولو فشل التجديد بيرجّع لشاشة الدخول. */
