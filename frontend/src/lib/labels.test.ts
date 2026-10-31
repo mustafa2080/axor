@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../api/client.ts'
-import { registerErrorMessage } from './labels.ts'
+import { errorMessage, registerErrorMessage } from './labels.ts'
 
 describe('registerErrorMessage', () => {
   it('بريد مسجّل قبل كده', () => {
@@ -32,5 +32,24 @@ describe('registerErrorMessage', () => {
   it('أي خطأ تاني بيعدّي على الرسائل العامة', () => {
     expect(registerErrorMessage(new ApiError(0, 'NETWORK_ERROR', 'x'))).toContain('تعذّر الاتصال')
     expect(registerErrorMessage(new Error('boom'))).toContain('غير متوقع')
+  })
+})
+
+describe('errorMessage (members and companies)', () => {
+  it('explains the last-owner rule instead of a generic conflict', () => {
+    const error = new ApiError(409, 'CONFLICT', 'A company must keep at least one active owner')
+    expect(errorMessage(error, 'member')).toContain('مالك نشط')
+  })
+
+  it('uses a state-changed message for other member and company conflicts', () => {
+    const error = new ApiError(409, 'CONFLICT', 'Only an active user can be disabled')
+    expect(errorMessage(error, 'member')).toContain('حالة العضو')
+    expect(errorMessage(error, 'tenant')).toContain('حالة الشركة')
+    expect(errorMessage(error, 'member')).not.toMatch(/[a-z]{4}/)
+  })
+
+  it('keeps the old conflict message for the other contexts', () => {
+    const error = new ApiError(409, 'CONFLICT', 'x')
+    expect(errorMessage(error)).toContain('الكود مكرر')
   })
 })

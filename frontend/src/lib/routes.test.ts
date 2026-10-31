@@ -18,7 +18,7 @@ describe('isKnownPublicHash', () => {
   })
 
   it('rejects unknown links and links that belong to signed-in areas', () => {
-    for (const hash of ['#/nope', '#/start', '#/products', '#/subscriptions', '#/login/extra', '#/Login', '#//']) {
+    for (const hash of ['#/nope', '#/start', '#/members', '#/tenants', '#/products', '#/subscriptions', '#/login/extra', '#/Login', '#//']) {
       expect(isKnownPublicHash(hash), hash).toBe(false)
     }
   })
@@ -26,13 +26,13 @@ describe('isKnownPublicHash', () => {
 
 describe('isKnownCompanyHash', () => {
   it('accepts the company area, home, and public links (old marketing links are not 404)', () => {
-    for (const hash of ['#/', '#/start', '#/start?trial=failed', '#/plans', '#/login', '#/register']) {
+    for (const hash of ['#/', '#/start', '#/members', '#/start?trial=failed', '#/plans', '#/login', '#/register']) {
       expect(isKnownCompanyHash(hash), hash).toBe(true)
     }
   })
 
   it('rejects platform-only and unknown links', () => {
-    for (const hash of ['#/products', '#/subscriptions', '#/audit', '#/admin', '#/start/x']) {
+    for (const hash of ['#/products', '#/subscriptions', '#/tenants', '#/audit', '#/admin', '#/start/x']) {
       expect(isKnownCompanyHash(hash), hash).toBe(false)
     }
   })
@@ -40,13 +40,13 @@ describe('isKnownCompanyHash', () => {
 
 describe('isKnownPlatformHash', () => {
   it('accepts the platform area, home, and public links', () => {
-    for (const hash of ['#/', '#/products', '#/plans', '#/subscriptions', '#/audit', '#/login', '#/register']) {
+    for (const hash of ['#/', '#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit', '#/login', '#/register']) {
       expect(isKnownPlatformHash(hash), hash).toBe(true)
     }
   })
 
   it('rejects company-only and unknown links', () => {
-    for (const hash of ['#/start', '#/nope', '#/products/1']) {
+    for (const hash of ['#/start', '#/members', '#/nope', '#/products/1']) {
       expect(isKnownPlatformHash(hash), hash).toBe(false)
     }
   })

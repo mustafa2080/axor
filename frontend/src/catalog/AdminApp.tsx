@@ -7,6 +7,7 @@ import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
 import { SubscriptionsPage } from '../subscriptions/SubscriptionsPage.tsx'
+import { TenantsPage } from '../tenants/TenantsPage.tsx'
 import { ProductsPage } from './ProductsPage.tsx'
 import { PlansPage } from './PlansPage.tsx'
 import { useCatalog } from './useCatalog.ts'
@@ -45,6 +46,9 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <a href="#/subscriptions" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
             الاشتراكات
           </a>
+          <a href="#/tenants" aria-current={known && route === 'tenants' ? 'page' : undefined}>
+            الشركات
+          </a>
           <a href="#/audit" aria-current={known && route === 'audit' ? 'page' : undefined}>
             سجل التدقيق
           </a>
@@ -60,6 +64,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       <main className="content">
         {!known ? <NotFoundPage /> : null}
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
+        {known && route === 'tenants' ? <TenantsPage /> : null}
         {known && route === 'audit' ? <AuditPage /> : null}
         {known && catalogRoute && state.status === 'loading' ? <Loading /> : null}
         {known && catalogRoute && state.status === 'error' ? (

@@ -7,6 +7,12 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel('subscription.canceled')).toBe('إلغاء اشتراك')
   })
 
+  it('translates the member and company-suspension events', () => {
+    for (const action of ['tenant.suspended', 'tenant.reactivated', 'member.role_changed', 'member.disabled', 'member.enabled']) {
+      expect(auditActionLabel(action), action).not.toBe(action)
+    }
+  })
+
   it('shows an unknown action by its code, so no event is hidden', () => {
     expect(auditActionLabel('billing.refunded')).toBe('billing.refunded')
   })

@@ -5,6 +5,7 @@ import { BrandMark } from '../components/ui.tsx'
 import { tenantRoleLabel } from '../lib/labels.ts'
 import { isKnownCompanyHash } from '../lib/routes.ts'
 import { useCompanyRoute, useHash } from '../lib/useRoute.ts'
+import { MembersPage } from './MembersPage.tsx'
 import { MySubscriptions } from './MySubscriptions.tsx'
 import { StartTrial } from './StartTrial.tsx'
 
@@ -17,6 +18,8 @@ export function CompanyApp({ user }: { user: SessionUser }) {
   const route = useCompanyRoute()
   const known = isKnownCompanyHash(useHash())
   const canManage = user.kind === 'tenant' && user.role === 'owner'
+  // قراءة الأعضاء لمالك الشركة والمدير والعضو (users:read). الخادم هو اللي بيحسم.
+  const canSeeMembers = user.kind === 'tenant' && user.role !== 'read_only'
 
   return (
     <>
@@ -29,6 +32,11 @@ export function CompanyApp({ user }: { user: SessionUser }) {
           <a href="#/start" aria-current={known && route === 'start' ? 'page' : undefined}>
             ابدأ تجربة
           </a>
+          {canSeeMembers ? (
+            <a href="#/members" aria-current={known && route === 'members' ? 'page' : undefined}>
+              الأعضاء
+            </a>
+          ) : null}
         </nav>
         <div className="user">
           <span className="ltr">{user.email}</span>
@@ -43,6 +51,8 @@ export function CompanyApp({ user }: { user: SessionUser }) {
           <NotFoundPage />
         ) : route === 'start' ? (
           <StartTrial canManage={canManage} />
+        ) : route === 'members' ? (
+          <MembersPage user={user} />
         ) : (
           <MySubscriptions canManage={canManage} />
         )}

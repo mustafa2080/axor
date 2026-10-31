@@ -6,6 +6,8 @@ import type {
   ProductStatus,
 } from '../api/catalog.ts'
 import type { SubscriptionStatus } from '../api/subscriptions.ts'
+import type { MemberStatus } from '../api/members.ts'
+import type { TenantStatus } from '../api/tenants.ts'
 
 export const productStatusLabel: Record<ProductStatus, string> = {
   available: 'متاح',
@@ -49,6 +51,18 @@ export const tenantRoleLabel: Record<string, string> = {
   read_only: 'قراءة فقط',
 }
 
+export const memberStatusLabel: Record<MemberStatus, string> = {
+  active: 'نشط',
+  invited: 'مدعو',
+  disabled: 'معطّل',
+}
+
+export const tenantStatusLabel: Record<TenantStatus, string> = {
+  active: 'نشطة',
+  suspended: 'معلّقة',
+  closed: 'مغلقة',
+}
+
 interface Issue {
   path: string
   message: string
@@ -73,7 +87,7 @@ function retryAfterSeconds(details: unknown): number | null {
 /** رسالة عربي للمستخدم من أي خطأ. الرسائل الإنجليزي اللي من الخادم ما بتتعرضش إلا في أخطاء التحقق. */
 export function errorMessage(
   error: unknown,
-  context: 'login' | 'general' | 'subscription' = 'general',
+  context: 'login' | 'general' | 'subscription' | 'member' | 'tenant' = 'general',
 ): string {
   if (!(error instanceof ApiError)) return 'حصل خطأ غير متوقع. جرّب تاني.'
   switch (error.code) {
@@ -94,6 +108,14 @@ export function errorMessage(
         ? 'الطلب اتمنع (أصل غير موثوق). افتح اللوحة من http://localhost:5173.'
         : 'مش مسموح لك بالعملية دي.'
     case 'CONFLICT':
+      if (context === 'member') {
+        return error.message.includes('at least one active owner')
+          ? 'ما ينفعش: لازم يفضل في الشركة مالك نشط واحد على الأقل.'
+          : 'العملية دي مش متاحة لحالة العضو الحالية (ممكن حد غيّرها). حدّث القائمة وجرّب تاني.'
+      }
+      if (context === 'tenant') {
+        return 'العملية دي مش متاحة لحالة الشركة الحالية (ممكن حد غيّرها). حدّث القائمة وجرّب تاني.'
+      }
       return context === 'subscription'
         ? 'العملية دي مش متاحة لحالة الاشتراك الحالية (ممكن حد غيّره). حدّث القائمة وجرّب تاني.'
         : 'العنصر ده موجود بالفعل (الكود مكرر). اختار كود مختلف.'

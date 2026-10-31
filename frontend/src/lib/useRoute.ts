@@ -3,7 +3,7 @@ import { parsePlanChoice } from './plan-choice.ts'
 import type { PlanChoice } from './plan-choice.ts'
 import { hashPath } from './routes.ts'
 
-export type Route = 'products' | 'plans' | 'subscriptions' | 'audit'
+export type Route = 'products' | 'plans' | 'subscriptions' | 'tenants' | 'audit'
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener('hashchange', callback)
@@ -20,6 +20,7 @@ export function useRoute(): Route {
   const path = hashPath(hash)
   if (path === '#/plans') return 'plans'
   if (path === '#/subscriptions') return 'subscriptions'
+  if (path === '#/tenants') return 'tenants'
   if (path === '#/audit') return 'audit'
   return 'products'
 }
@@ -32,7 +33,7 @@ export function useHash(): string {
   return useSyncExternalStore(subscribe, currentHash, serverHash)
 }
 
-export type CompanyRoute = 'subscriptions' | 'start'
+export type CompanyRoute = 'subscriptions' | 'start' | 'members'
 
 /** الرابط اللي بنوصّل عليه الزائر لو التسجيل نجح وبدء التجربة اللي اختارها فشل. */
 export const TRIAL_FAILED_HASH = '#/start?trial=failed'
@@ -42,10 +43,13 @@ export function isTrialFailedHash(hash: string): boolean {
   return hash === TRIAL_FAILED_HASH
 }
 
-/** مسارات لوحة الشركة: #/ (اشتراكاتي) و#/start (ابدأ تجربة، ممكن معاه ?trial=failed). */
+/** مسارات لوحة الشركة: #/ (اشتراكاتي) و#/start (ابدأ تجربة، ممكن معاه ?trial=failed) و#/members (الأعضاء). */
 export function useCompanyRoute(): CompanyRoute {
   const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
-  return hash.split('?')[0] === '#/start' ? 'start' : 'subscriptions'
+  const path = hash.split('?')[0]
+  if (path === '#/start') return 'start'
+  if (path === '#/members') return 'members'
+  return 'subscriptions'
 }
 
 /** true لما الزائر وصل لـ #/start بعد فشل بدء التجربة عقب التسجيل. */
