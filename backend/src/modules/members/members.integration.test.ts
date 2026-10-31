@@ -474,3 +474,143 @@ describe('two owners acting at the same moment', () => {
     );
   });
 });
+
+// Re-enabling a member takes a seat, so it must respect the `users` limit of the plans that entitle
+// the company right now (ADR-0012). Disabled people do not hold a seat; invited ones do.
+describe('plan user limit on re-enabling', () => {
+  const DAY = 86_400_000;
+  let extra1 = '';
+  let extra2 = '';
+
+  async function subscribe(
+    limits: Record<string, number | null>,
+    options: { status?: 'trialing' | 'active' | 'canceled'; endsInMs?: number; code?: string } = {},
+  ) {
+    const productId = uuidv7();
+    const planId = uuidv7();
+    const versionId = uuidv7();
+    const code = options.code ?? 'stark';
+    await db.insert(schema.products).values({ id: productId, code, name: code, status: 'available' });
+    await db
+      .insert(schema.plans)
+      .values({ id: planId, productId, code: 'basic', status: 'active', currentVersionId: versionId });
+    await db.insert(schema.planVersions).values({
+      id: versionId,
+      planId,
+      version: 1,
+      priceMinor: 49900,
+      currency: 'EGP',
+      billingPeriod: 'monthly',
+      trialDays: 14,
+      limits,
+      features: {},
+    });
+    await db.insert(schema.subscriptions).values({
+      id: uuidv7(),
+      tenantId: ids.tenantA,
+      productId,
+      planId,
+      status: options.status ?? 'active',
+      currentPeriodEnd: new Date(Date.now() + (options.endsInMs ?? 30 * DAY)),
+    });
+  }
+
+  const setStatus = (id: string, status: schema.UserStatus) =>
+    db.update(schema.users).set({ status }).where(eq(schema.users.id, id));
+  const enableAs = (id: string) => call('POST', `/members/${id}/enable`, 'owner@alpha.test');
+  const enabledAudit = () => auditRows('member.enabled');
+
+  // Company A: owner, admin, admin2, member, readOnly are active (5 seats) + two disabled people.
+  beforeEach(async () => {
+    extra1 = uuidv7();
+    extra2 = uuidv7();
+    await db.insert(schema.users).values([
+      { id: extra1, email: 'extra1@alpha.test', passwordHash, tenantId: ids.tenantA, tenantRole: 'member' as const, status: 'disabled' as const },
+      { id: extra2, email: 'extra2@alpha.test', passwordHash, tenantId: ids.tenantA, tenantRole: 'member' as const, status: 'disabled' as const },
+    ]);
+  });
+
+  it('refuses at the limit with PLAN_LIMIT_REACHED and changes nothing', async () => {
+    await subscribe({ users: 5 });
+    const res = await enableAs(extra1);
+    expect(res.statusCode).toBe(409);
+    expect(res.json<{ error: { code: string } }>().error.code).toBe('PLAN_LIMIT_REACHED');
+    expect(await statusOf(extra1)).toBe('disabled');
+    expect(await enabledAudit()).toHaveLength(0);
+  });
+
+  it('allows it once a seat is freed, and then refuses the next one', async () => {
+    await subscribe({ users: 5 });
+    await setStatus(ids.member, 'disabled');
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+    expect(await statusOf(extra1)).toBe('active');
+    expect(await enabledAudit()).toHaveLength(1);
+    expect((await enableAs(extra2)).statusCode).toBe(409);
+    expect(await statusOf(extra2)).toBe('disabled');
+  });
+
+  it('counts invited people as holding a seat', async () => {
+    await subscribe({ users: 5 });
+    await setStatus(ids.member, 'invited');
+    expect((await enableAs(extra1)).statusCode).toBe(409);
+  });
+
+  it('does not limit a plan with users: null, a plan without a users limit, or no plan at all', async () => {
+    await subscribe({ users: null });
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+    await db.delete(schema.subscriptions);
+    expect((await enableAs(extra2)).statusCode).toBe(200);
+  });
+
+  it('ignores a plan that no longer entitles the company (expired or canceled)', async () => {
+    await subscribe({ users: 1 }, { endsInMs: -DAY, code: 'old' });
+    await subscribe({ users: 1 }, { status: 'canceled', code: 'gone' });
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+  });
+
+  it('takes the most generous entitled plan when the company has several', async () => {
+    await subscribe({ users: 5 }, { code: 'small' });
+    await subscribe({ users: 6 }, { code: 'big' });
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+    expect((await enableAs(extra2)).statusCode).toBe(409);
+  });
+
+  it('does not count another company\u2019s people', async () => {
+    await subscribe({ users: 6 });
+    await db.insert(schema.users).values(
+      Array.from({ length: 10 }, (_, index) => ({
+        id: uuidv7(),
+        email: `filler${index}@beta.test`,
+        passwordHash,
+        tenantId: ids.tenantB,
+        tenantRole: 'member' as const,
+      })),
+    );
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+  });
+
+  // Repository directly, like the owner tests: HTTP would make this about request timing.
+  it('lets exactly one of two simultaneous re-enables take the last seat', async () => {
+    await subscribe({ users: 6 });
+    const members = createMembersRepository(db);
+    const scope = requireTenantScope({
+      kind: 'tenant',
+      userId: ids.owner,
+      tenantId: ids.tenantA,
+      role: 'owner',
+    });
+    const results = await Promise.allSettled([
+      members.enable(scope, 'owner', extra1),
+      members.enable(scope, 'owner', extra2),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const lost = results.find((result) => result.status === 'rejected') as PromiseRejectedResult;
+    expect(lost.reason).toBeInstanceOf(AppError);
+    expect((lost.reason as AppError).code).toBe('PLAN_LIMIT_REACHED');
+    const active = await db
+      .select()
+      .from(schema.users)
+      .where(and(eq(schema.users.tenantId, ids.tenantA), eq(schema.users.status, 'active')));
+    expect(active).toHaveLength(6);
+  });
+});

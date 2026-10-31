@@ -203,6 +203,19 @@ async function toTenantViews(
 }
 
 /**
+ * The company's subscriptions with what each one entitles it to at `now`. Takes any executor, so
+ * another repository can call it inside its own transaction (ADR-0012) and see the same snapshot.
+ */
+export async function loadTenantSubscriptionViews(
+  exec: Exec,
+  tenantId: string,
+  now: Date,
+): Promise<TenantSubscriptionView[]> {
+  const rows = await selectRows(exec, eq(subscriptions.tenantId, tenantId));
+  return toTenantViews(exec, rows, now);
+}
+
+/**
  * Trials, subscriptions and their lifecycle (ADR-0007).
  *
  * Company methods take a TenantScope and add its tenant to every query, so a company can only ever

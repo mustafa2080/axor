@@ -48,6 +48,14 @@ describe('errorMessage (members and companies)', () => {
     expect(errorMessage(error, 'member')).not.toMatch(/[a-z]{4}/)
   })
 
+  it('tells the user to upgrade or free a seat when the plan user limit is reached', () => {
+    const error = new ApiError(409, 'PLAN_LIMIT_REACHED', 'Your plan does not allow more users.')
+    const message = errorMessage(error, 'member')
+    expect(message).toContain('الباقة')
+    expect(message).toContain('عطّل')
+    expect(message).not.toMatch(/[a-z]{4}/)
+  })
+
   it('keeps the old conflict message for the other contexts', () => {
     const error = new ApiError(409, 'CONFLICT', 'x')
     expect(errorMessage(error)).toContain('الكود مكرر')

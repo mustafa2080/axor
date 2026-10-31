@@ -1,11 +1,20 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
-import { conflict, forbidden, notFound } from '../../common/errors.js';
+import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
+import { conflict, forbidden, notFound, planLimitReached } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { TenantScope } from '../../modules/authz/tenant-scope.js';
 import { canAssignRole, canManageMember } from '../../modules/members/member-policy.js';
+import { hasFreeSeat, resolveUserSeatLimit } from '../../modules/subscriptions/entitlements.js';
 import type { Database } from '../client.js';
 import { retryOnDeadlock } from '../retry.js';
-import { auditLogs, refreshSessions, users, type TenantRole, type UserStatus } from '../schema/index.js';
+import {
+  auditLogs,
+  refreshSessions,
+  tenants,
+  users,
+  type TenantRole,
+  type UserStatus,
+} from '../schema/index.js';
+import { loadTenantSubscriptionViews } from './subscriptions.repository.js';
 import { assertSafeMetadata } from './tenant-audit-logs.repository.js';
 
 type Tx = Parameters<Parameters<Database['db']['transaction']>[0]>[0];
@@ -30,6 +39,8 @@ export interface MemberView {
 }
 
 export const LAST_OWNER_MESSAGE = 'A company must keep at least one active owner';
+export const USER_LIMIT_MESSAGE =
+  'Your plan does not allow more users. Upgrade your plan to re-enable this member.';
 
 /**
  * Company members: listing, role changes, disabling and re-enabling (ADR-0011).
@@ -40,8 +51,10 @@ export const LAST_OWNER_MESSAGE = 'A company must keep at least one active owner
  *    concurrent changes cannot both remove "the other" last owner.
  *  - The change, the session revocation and the audit row are ONE transaction: no change without
  *    a trace, no half-disabled user.
+ *  - Re-enabling takes a seat, so it is checked against the `users` limit of the company's plans
+ *    (ADR-0012). The company row is locked first, so two re-enables cannot both take the last seat.
  */
-export function createMembersRepository(db: Database['db']) {
+export function createMembersRepository(db: Database['db'], clock: () => Date = () => new Date()) {
   async function lockTarget(tx: Tx, scope: TenantScope, userId: string) {
     const owners = await tx
       .select({ id: users.id })
@@ -170,10 +183,32 @@ export function createMembersRepository(db: Database['db']) {
     ): Promise<MemberView> {
       return retryOnDeadlock(() =>
         db.transaction(async (tx) => {
+          // Company row first: it serializes every seat-taking change of this company.
+          await tx
+            .select({ id: tenants.id })
+            .from(tenants)
+            .where(eq(tenants.id, scope.tenantId))
+            .limit(1)
+            .for('update');
           const { target } = await lockTarget(tx, scope, userId);
           if (!canManageMember(actorRole, target.tenantRole)) throw forbidden();
           if (target.status === 'active') return target;
           if (target.status !== 'disabled') throw conflict('Only a disabled user can be enabled');
+          const now = clock();
+          const views = await loadTenantSubscriptionViews(tx, scope.tenantId, now);
+          const limit = resolveUserSeatLimit(
+            views.map((view) => ({ entitled: view.entitled, limits: view.version?.limits ?? null })),
+          );
+          if (limit.kind === 'max') {
+            // Active and invited people hold a seat; disabled ones do not.
+            const [row] = await tx
+              .select({ occupied: count() })
+              .from(users)
+              .where(
+                and(eq(users.tenantId, scope.tenantId), inArray(users.status, ['active', 'invited'])),
+              );
+            if (!hasFreeSeat(limit, row?.occupied ?? 0)) throw planLimitReached(USER_LIMIT_MESSAGE);
+          }
           await tx
             .update(users)
             .set({ status: 'active' })
