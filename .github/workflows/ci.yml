@@ -71,3 +71,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Fails on high/critical advisories in production dependencies.
       - run: pnpm audit --prod --audit-level=high
+
+  secrets:
+    name: secret scan (full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      # fetch-depth 0: the scan reads every line ever added in any commit, not just the tip.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No dependencies on purpose (scripts/secret-scan.mjs is plain Node).
+      - run: node scripts/secret-scan.mjs --history

@@ -4,6 +4,9 @@
 # طوارئ فقط: `git commit --no-verify` بيتخطاه، والـ CI هيفضل يفحص كل حاجة.
 set -e
 
+echo "pre-commit: secret scan (staged files)..."
+node scripts/secret-scan.mjs --staged
+
 echo "pre-commit: lint + typecheck..."
 pnpm lint
 pnpm typecheck

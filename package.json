@@ -19,6 +19,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "secret-scan": "node scripts/secret-scan.mjs --all",
+    "secret-scan:history": "node scripts/secret-scan.mjs --history",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
+    "check": "pnpm secret-scan && pnpm test:scripts && pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   }
 }
