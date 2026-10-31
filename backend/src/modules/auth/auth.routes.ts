@@ -8,6 +8,7 @@ import { parseInput } from '../../common/validation.js';
 import type { Env } from '../../config/env.js';
 import { createAuthenticate } from './authenticate.js';
 import type { AuthContext, AuthService, AuthenticatedUser, SessionTokens } from './auth.service.js';
+import { isWellFormedRefreshToken } from './refresh-token.js';
 
 const loginBody = z.strictObject({
   email: z.string().trim().min(3).max(320),
@@ -142,6 +143,8 @@ export function authRoutes(auth: AuthService, env: Env) {
       const token = request.cookies[cookieName];
       if (token === undefined || token === '') throw unauthorized('Invalid or expired session');
       try {
+        // A cookie that is not shaped like one of our tokens is a dead session: no hash, no lookup.
+        if (!isWellFormedRefreshToken(token)) throw unauthorized('Invalid or expired session');
         return sendSession(reply, await auth.refresh(token, contextOf(request)));
       } catch (error) {
         // A dead session must not leave a stale cookie behind.
@@ -153,7 +156,7 @@ export function authRoutes(auth: AuthService, env: Env) {
     app.post('/auth/logout', async (request, reply) => {
       requireTrustedOrigin(request);
       const token = request.cookies[cookieName];
-      if (token !== undefined && token !== '') await auth.logout(token, contextOf(request));
+      if (token !== undefined && isWellFormedRefreshToken(token)) await auth.logout(token, contextOf(request));
       void reply.clearCookie(cookieName, cookieOptions);
       return reply.code(204).send();
     });

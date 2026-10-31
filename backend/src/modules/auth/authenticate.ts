@@ -16,7 +16,7 @@ declare module 'fastify' {
 export function createAuthenticate(auth: AuthService) {
   return async function authenticate(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
     const header = request.headers.authorization;
-    const match = typeof header === 'string' ? /^Bearer ([\w.~-]+)$/.exec(header) : null;
+    const match = typeof header === 'string' ? /^Bearer ([\w.~-]{1,2048})$/.exec(header) : null;
     const token = match?.[1];
     if (token === undefined) throw unauthorized();
     request.auth = await auth.authenticate(token);

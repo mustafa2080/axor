@@ -155,3 +155,68 @@ describe('list endpoints are bounded', () => {
     }
   });
 });
+
+// A static guard for input bounds (TASKS.md section 9, "validate every input with schemas"). Body,
+// params and query go through parseInput and nothing else, and no schema may accept an unbounded
+// string, number, array or record: a client must not be able to send a megabyte where a name goes.
+describe('input bounds', () => {
+  const sources = () => routeFiles().map((file) => ({ name: path.basename(file), text: readFileSync(file, 'utf8') }));
+
+  it('reads request.body, request.params and request.query only through parseInput', () => {
+    const offenders: string[] = [];
+    for (const { name, text } of sources()) {
+      // `request.body ?? {}` is still parsed: it only lets an optional body be absent.
+      const rest = text.replace(/parseInput\(\s*\w+\s*,\s*request\.(?:body(?:\s*\?\?\s*\{\})?|params|query)\s*\)/g, '');
+      for (const match of rest.matchAll(/request\.(?:body|params|query)\b/g)) {
+        offenders.push(`${name}: ${rest.slice(match.index, (match.index ?? 0) + 40).replace(/\s+/g, ' ')}`);
+      }
+    }
+    expect(offenders, 'validate it with a schema: parseInput(schema, request.x)').toEqual([]);
+  });
+
+  it('bounds every string: a max length, a fixed length, or a regex with no open-ended quantifier', () => {
+    const offenders: string[] = [];
+    for (const { name, text } of sources()) {
+      for (const match of text.matchAll(/\bz\s*\.string\(\)((?:\s*\.\w+\((?:[^()]|\([^()]*\))*\))*)/g)) {
+        const chain = match[1] ?? '';
+        const pattern = /\.regex\(\s*\/((?:[^/\\]|\\.)*)\//.exec(chain)?.[1];
+        const bounded =
+          /\.(?:max|length)\(/.test(chain) || (pattern !== undefined && !/[+*]|\{\d+,\}/.test(pattern));
+        if (!bounded) offenders.push(`${name}: ${match[0].replace(/\s+/g, ' ').slice(0, 70)}`);
+      }
+    }
+    expect(offenders, 'add .max(n) (or an anchored, bounded .regex)').toEqual([]);
+  });
+
+  it('bounds every number with .max()', () => {
+    const offenders: string[] = [];
+    for (const { name, text } of sources()) {
+      for (const match of text.matchAll(/\bz\s*\.(?:coerce\s*\.)?number\(\)((?:\s*\.\w+\([^()]*\))*)/g)) {
+        if (!/\.max\(/.test(match[1] ?? '')) offenders.push(`${name}: ${match[0].replace(/\s+/g, ' ').slice(0, 70)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('caps the size of every array and record', () => {
+    const offenders: string[] = [];
+    for (const { name, text } of sources()) {
+      for (const match of text.matchAll(/\bz\s*\.array\(/g)) {
+        if (!/\.max\(/.test(text.slice(match.index, (match.index ?? 0) + 300))) offenders.push(`${name}: z.array without .max()`);
+      }
+      for (const match of text.matchAll(/\bz\s*\.record\(/g)) {
+        const after = text.slice(match.index, (match.index ?? 0) + 300);
+        if (!/Object\.keys\([^)]*\)\.length\s*<=/.test(after)) offenders.push(`${name}: z.record without a key-count cap`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('shape-checks the refresh cookie before using it', () => {
+    for (const { name, text } of sources()) {
+      if (!/request\.cookies\b/.test(text)) continue;
+      expect(text, `${name} reads a cookie`).toMatch(/isWellFormedRefreshToken\(/);
+      expect(text.match(/request\.cookies\[/g)?.length, name).toBe(text.match(/isWellFormedRefreshToken\(token\)/g)?.length);
+    }
+  });
+});

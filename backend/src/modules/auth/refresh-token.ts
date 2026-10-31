@@ -10,3 +10,11 @@ export function generateRefreshToken(): { token: string; tokenHash: string } {
   const token = randomBytes(32).toString('base64url');
   return { token, tokenHash: hashRefreshToken(token) };
 }
+
+// generateRefreshToken() always yields 32 bytes as base64url: exactly 43 characters. Anything else
+// cannot be one of ours, so it is rejected before it is hashed or looked up.
+const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
+export function isWellFormedRefreshToken(token: string): boolean {
+  return REFRESH_TOKEN_SHAPE.test(token);
+}
