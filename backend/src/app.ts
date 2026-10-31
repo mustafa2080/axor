@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import type { FastifyError, FastifyRequest } from 'fastify';
 import type { Env } from './config/env.js';
 import { AppError } from './common/errors.js';
+import { SECRET_PATHS, serializeError } from './common/log-safe.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthDeps } from './modules/health/health.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -53,10 +54,7 @@ const REDACTED_PATHS = [
   'req.headers.cookie',
   'req.headers["x-api-key"]',
   'res.headers["set-cookie"]',
-  '*.password',
-  '*.token',
-  '*.refreshToken',
-  '*.secret',
+  ...SECRET_PATHS,
 ];
 
 function loggerOptions(env: Env) {
@@ -64,6 +62,8 @@ function loggerOptions(env: Env) {
     level: env.LOG_LEVEL,
     redact: { paths: REDACTED_PATHS, censor: '[REDACTED]' },
     serializers: {
+      // Errors from the database driver carry emails, hashes and bound values (see log-safe.ts).
+      err: (error: Error) => serializeError(error),
       // Log the path only: query strings can carry tokens (reset links, etc.).
       req: (request: FastifyRequest) => ({
         method: request.method,
