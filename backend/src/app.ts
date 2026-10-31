@@ -6,7 +6,7 @@ import Fastify from 'fastify';
 import type { FastifyError, FastifyRequest } from 'fastify';
 import type { Env } from './config/env.js';
 import { AppError } from './common/errors.js';
-import { SECRET_PATHS, serializeError } from './common/log-safe.js';
+import { SECRET_PATHS, maskIp, serializeError } from './common/log-safe.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthDeps } from './modules/health/health.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -64,11 +64,12 @@ function loggerOptions(env: Env) {
     serializers: {
       // Errors from the database driver carry emails, hashes and bound values (see log-safe.ts).
       err: (error: Error) => serializeError(error),
-      // Log the path only: query strings can carry tokens (reset links, etc.).
+      // Log the path only: query strings can carry tokens (reset links, etc.). The client IP is
+      // masked here; the full address is kept in audit_logs for security events only.
       req: (request: FastifyRequest) => ({
         method: request.method,
         url: request.url.split('?', 1)[0] ?? '',
-        remoteAddress: request.ip,
+        remoteAddress: maskIp(request.ip),
       }),
     },
   };

@@ -5,6 +5,7 @@ import { DrizzleQueryError } from 'drizzle-orm/errors';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
+import { maskIp } from './common/log-safe.js';
 
 // Log hygiene (TASKS.md section 9): no PII, token or password may reach the logs, including
 // through the error objects that database drivers build.
@@ -70,6 +71,19 @@ describe('log calls in the source (static guard)', () => {
     expect(offenders, 'use request.log / app.log (they redact and scrub)').toEqual([]);
   });
 
+  it('masks any client IP that is put in a log call object', () => {
+    const offenders: string[] = [];
+    for (const { file, text } of sources) {
+      for (const match of text.matchAll(/\blog\.(?:trace|debug|info|warn|error|fatal)\(\s*\{([^}]*)\}/g)) {
+        const body = match[1] ?? '';
+        const keys = body.replace(/:[^,]*/g, '');
+        const mentionsIp = /\b(ip|ipAddress|clientIp|remoteAddress)\b/.test(keys) || /\.ip\b/.test(body);
+        if (mentionsIp && !body.includes('maskIp(')) offenders.push(`${file}: ${match[0].replace(/\s+/g, ' ').slice(0, 90)}`);
+      }
+    }
+    expect(offenders, 'wrap the address in maskIp(); the full IP belongs in audit_logs only').toEqual([]);
+  });
+
   it('never puts an email, password, token, body or headers in a log call object', () => {
     const offenders: string[] = [];
     for (const { file, text } of sources) {
@@ -79,6 +93,48 @@ describe('log calls in the source (static guard)', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('client IP in ordinary logs', () => {
+  it('masks IPv4 to the /24 and IPv6 to the /48', () => {
+    expect(maskIp('41.33.12.7')).toBe('41.33.12.0');
+    expect(maskIp('203.0.113.255')).toBe('203.0.113.0');
+    expect(maskIp('2001:db8:85a3:8d3:1319:8a2e:370:7344')).toBe('2001:db8:85a3::');
+    expect(maskIp('2001:db8::1')).toBe('2001:db8:0::');
+    expect(maskIp('::1')).toBe('0:0:0::');
+    expect(maskIp('fe80::1%eth0')).toBe('fe80:0:0::');
+  });
+
+  it('masks an IPv4 client seen through a dual-stack socket as IPv4', () => {
+    expect(maskIp('::ffff:41.33.12.7')).toBe('41.33.12.0');
+  });
+
+  it('does not echo back text that is not an IP address', () => {
+    for (const value of ['', 'not-an-ip', 'victim.person@example.com', '999.1.1.1', '1.2.3']) {
+      expect(maskIp(value)).toBe('[invalid-ip]');
+    }
+  });
+
+  it('writes the masked address, never the full one, in request logs', async () => {
+    const verbose = loadEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'mysql://user:pass@127.0.0.1:3306/axor_test',
+      JWT_ACCESS_SECRET: 'unit-test-secret-that-is-long-enough-123456',
+      LOG_LEVEL: 'info',
+    });
+    for (const [remote, full, masked] of [
+      ['203.0.113.77', '203.0.113.77', '203.0.113.0'],
+      ['::ffff:203.0.113.77', '203.0.113.77', '203.0.113.0'],
+      ['2001:db8:85a3:8d3:1319:8a2e:370:7344', '1319:8a2e:370:7344', '2001:db8:85a3::'],
+    ] as const) {
+      const logs = captureLogs();
+      const app = buildApp(verbose, deps, { logStream: logs.stream });
+      app.get('/x', async () => ({ ok: true }));
+      await app.inject({ method: 'GET', url: '/x', remoteAddress: remote });
+      expect(logs.text(), `request log for ${remote}`).toContain(masked);
+      expect(logs.text(), `request log for ${remote}`).not.toContain(full);
+    }
   });
 });
 
