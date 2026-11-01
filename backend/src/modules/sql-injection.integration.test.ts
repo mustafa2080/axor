@@ -7,6 +7,8 @@ import { createDatabase } from '../database/client.js';
 import { runMigrations } from '../database/migrate.js';
 import { createAuditAdminRepository } from '../database/repositories/audit-admin.repository.js';
 import { createCatalogRepository } from '../database/repositories/catalog.repository.js';
+import { createMembersRepository } from '../database/repositories/members.repository.js';
+import { createTenantsAdminRepository } from '../database/repositories/tenants-admin.repository.js';
 import * as schema from '../database/schema/index.js';
 import { truncateDomainTables } from '../test/db-helpers.js';
 import { createAccessTokenService } from './auth/access-token.js';
@@ -54,6 +56,8 @@ function newApp() {
     auth,
     catalog: createCatalogRepository(db),
     auditAdmin: createAuditAdminRepository(db),
+    members: createMembersRepository(db),
+    tenantsAdmin: createTenantsAdminRepository(db),
   });
 }
 
@@ -200,5 +204,59 @@ describe('SQL injection', () => {
         expect(res.statusCode, `${key} ${payload}`).toBe(400);
       }
     }
+  });
+
+  it('stores SQL in the User-Agent header as plain text', async () => {
+    // These four have no leading or trailing space, so the stored value must match exactly.
+    const agents = PAYLOADS.slice(0, 4);
+    for (const agent of agents) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: { origin: ORIGIN, 'user-agent': agent },
+        payload: { email: EMAIL, password: PASSWORD },
+      });
+      expect(res.statusCode, `user-agent ${agent}`).toBe(200);
+    }
+    const stored = (await db.select().from(schema.refreshSessions)).map((row) => row.userAgent);
+    for (const agent of agents) expect(stored, `stored ${agent}`).toContain(agent);
+    expect(await db.select().from(schema.users)).toHaveLength(2);
+    expect(await db.select().from(schema.tenants)).toHaveLength(1);
+  });
+
+  it('reads stored SQL back as data (second order), never as SQL', async () => {
+    const payload = "'; DROP TABLE users; --";
+    // Planted straight in the database, as if an earlier request had stored them.
+    await db.update(schema.tenants).set({ name: payload }).where(eq(schema.tenants.id, tenantId));
+    await db.update(schema.users).set({ fullName: payload }).where(eq(schema.users.id, userId));
+
+    const owner = await login(EMAIL, PASSWORD);
+    expect(owner.statusCode).toBe(200);
+    const members = await app.inject({
+      method: 'GET',
+      url: '/api/v1/members',
+      headers: {
+        authorization: `Bearer ${owner.json<{ data: { accessToken: string } }>().data.accessToken}`,
+      },
+    });
+    expect(members.statusCode).toBe(200);
+    expect(members.body).toContain(payload);
+
+    const admin = await login(ADMIN_EMAIL, PASSWORD);
+    expect(admin.statusCode).toBe(200);
+    const adminHeaders = {
+      authorization: `Bearer ${admin.json<{ data: { accessToken: string } }>().data.accessToken}`,
+    };
+    for (const url of ['/api/v1/admin/tenants', '/api/v1/admin/audit-logs']) {
+      const res = await app.inject({ method: 'GET', url, headers: adminHeaders });
+      expect(res.statusCode, url).toBe(200);
+    }
+    const tenants = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/tenants',
+      headers: adminHeaders,
+    });
+    expect(tenants.body).toContain(payload);
+    expect(await db.select().from(schema.users)).toHaveLength(2);
   });
 });
