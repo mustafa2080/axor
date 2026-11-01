@@ -48,6 +48,13 @@ export interface AppOptions {
 
 const REQUEST_ID_PATTERN = /^[\w.-]{8,64}$/;
 
+// Request limits (ADR-0015). Every body is a small JSON object, so 64 KiB is far above anything
+// legitimate. The time limits cut off slow clients instead of letting them hold connections open.
+export const MAX_BODY_BYTES = 65_536;
+export const MAX_PARAM_LENGTH = 100;
+export const REQUEST_TIMEOUT_MS = 30_000;
+export const HEADERS_TIMEOUT_MS = 15_000;
+
 /** Fields that must never reach the logs. */
 const REDACTED_PATHS = [
   'req.headers.authorization',
@@ -86,7 +93,9 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   const app = Fastify({
     logger,
     trustProxy: env.TRUST_PROXY,
-    bodyLimit: 1_048_576,
+    bodyLimit: MAX_BODY_BYTES,
+    maxParamLength: MAX_PARAM_LENGTH,
+    requestTimeout: REQUEST_TIMEOUT_MS,
     // Accept a well-formed incoming id (for tracing across services); otherwise generate one.
     // Anything else is ignored so clients cannot inject arbitrary text into the logs.
     genReqId: (request) => {
@@ -96,6 +105,13 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
         : randomUUID();
     },
   });
+
+  // Slow headers are cut off sooner than slow bodies (requestTimeout above).
+  app.server.headersTimeout = HEADERS_TIMEOUT_MS;
+
+  // JSON is the only body format this API reads. Fastify also accepts text/plain by default,
+  // which nothing needs; with it removed, any other content type answers 415.
+  app.removeContentTypeParser('text/plain');
 
   app.addHook('onSend', async (request, reply, payload) => {
     void reply.header('x-request-id', request.id);
