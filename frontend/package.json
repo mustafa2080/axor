@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-dist.mjs",
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest run",
