@@ -1,0 +1,277 @@
+/*
+ * هيكل اللوحات: قائمة جانبية بسُمك + زرار الوضع الليلي/النهاري (ADR-0022). بتتحمّل بعد depth.css.
+ * CSS بس من غير inline style، فالـ CSP ما اتغيّرتش. الحركة كلها جوه prefers-reduced-motion: no-preference.
+ * التطبيق عربي RTL بس، فالقائمة على اليمين ومفصلة الدرج على حافتها اليمين (rotateY بزاوية سالبة).
+ */
+
+.shell {
+  --side-w: 264px;
+  --side-w-collapsed: 76px;
+  min-height: 100dvh;
+}
+.shell-main {
+  min-width: 0;
+}
+.shell-bar,
+.shell-backdrop,
+.side-close {
+  display: none;
+}
+
+/* عناصر القائمة (روابط وأزرار) بنفس الشكل */
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  inline-size: 100%;
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+  transition-property: background-color, color, box-shadow, translate;
+  transition-duration: var(--duration-quick);
+  transition-timing-function: ease-out;
+}
+.side-item .icon {
+  flex: none;
+}
+.side-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.side-item[aria-current='page'] {
+  background-color: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow:
+    inset 0 1px 0 var(--lit),
+    0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent),
+    0 2px 0 color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.side-item:active {
+  translate: 0 1px;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--surface);
+  background-image: linear-gradient(180deg, var(--slab-top), var(--slab-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--lit),
+    inset -1px 0 0 var(--lit),
+    -3px 0 0 var(--edge),
+    -6px 0 0 var(--edge-deep),
+    -24px 0 36px -20px rgb(var(--drop) / 0.35);
+}
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 52px;
+  padding-inline: 0.25rem;
+}
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-block-start: 0.5rem;
+  border-block-start: 1px solid var(--border);
+}
+.side-user,
+.side-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.side-user-info {
+  padding: 0.25rem 0.85rem 0.5rem;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+.side-user-info .ltr {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.side-user-info .muted {
+  align-self: flex-start;
+  padding: 0.1rem 0.65rem;
+  border-radius: 999px;
+  background: var(--hover);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+/* القائمة على اليمين: السهم بيشاور ليمين (جهة الطي) وهي مفتوحة، وبيتقلب لما تتطوي. */
+.side-collapse .icon {
+  rotate: 180deg;
+  transition: rotate var(--duration-fast) var(--ease-out);
+}
+
+/* الشاشات الكبيرة: القائمة ثابتة وبتتطوي لشريط أيقونات */
+@media (min-width: 900px) {
+  .shell {
+    display: grid;
+    grid-template-columns: var(--side-w) minmax(0, 1fr);
+    transition: grid-template-columns var(--duration-medium) var(--ease-out);
+  }
+  .shell[data-collapsed='true'] {
+    grid-template-columns: var(--side-w-collapsed) minmax(0, 1fr);
+  }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    z-index: 20;
+    overflow: hidden;
+  }
+  .shell[data-collapsed='true'] .side-collapse .icon {
+    rotate: 0deg;
+  }
+  .shell[data-collapsed='true'] .side-head {
+    flex-direction: column-reverse;
+    justify-content: center;
+  }
+  .shell[data-collapsed='true'] .side-head .brand-name,
+  .shell[data-collapsed='true'] .nav-label,
+  .shell[data-collapsed='true'] .side-user-info {
+    display: none;
+  }
+  .shell[data-collapsed='true'] .side-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+}
+
+/* الموبايل: درج بيتفتح بمفصلة من حافته اليمين */
+@media (max-width: 899.98px) {
+  .side-collapse {
+    display: none;
+  }
+  .side-close {
+    display: inline-flex;
+  }
+  .shell-bar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 56px;
+    padding: 0.4rem 1rem;
+    background-color: var(--surface);
+    background-image: linear-gradient(180deg, var(--slab-top), var(--slab-bottom));
+    box-shadow:
+      inset 0 1px 0 var(--lit),
+      0 1px 0 var(--border),
+      0 2px 0 var(--edge),
+      0 12px 22px -14px rgb(var(--drop) / 0.3);
+  }
+  .shell-bar .theme-toggle {
+    margin-inline-start: auto;
+  }
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 40;
+    inline-size: min(300px, 86vw);
+    transform-origin: right center;
+    transform: perspective(1100px) rotateY(-78deg);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      transform var(--duration-medium) var(--ease-out),
+      opacity var(--duration-fast) ease-out,
+      visibility 0s linear var(--duration-medium);
+  }
+  .shell[data-drawer='open'] .sidebar {
+    transform: perspective(1100px) rotateY(0deg);
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .shell-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: var(--overlay);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) ease-out;
+  }
+  .shell[data-drawer='open'] .shell-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* زرار الوضع الليلي/النهاري: أيقونة بتنقلب بـ rotateX (من غير rotateY عشان RTL) */
+.theme-toggle {
+  cursor: pointer;
+}
+.theme-icons {
+  position: relative;
+  display: grid;
+  inline-size: 20px;
+  block-size: 20px;
+  flex: none;
+  transform-style: preserve-3d;
+  perspective: 120px;
+}
+.theme-icon {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+.theme-icon-moon {
+  transform: rotateX(180deg);
+}
+:root[data-theme='dark'] .theme-icons {
+  transform: rotateX(180deg);
+}
+.theme-fab {
+  position: fixed;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  z-index: 50;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-icons {
+    transition: transform var(--duration-medium) var(--ease-out);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .sidebar,
+  .shell-backdrop,
+  .side-collapse .icon {
+    transition: none !important;
+  }
+}

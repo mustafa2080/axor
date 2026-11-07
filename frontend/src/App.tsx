@@ -7,6 +7,7 @@ import { CompanyApp } from './company/CompanyApp.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { NotFoundPage } from './components/ErrorPage.tsx'
 import { OfflineBanner } from './components/OfflineBanner.tsx'
+import { ThemeToggle } from './components/ThemeToggle.tsx'
 import { Spinner } from './components/ui.tsx'
 import { isKnownPublicHash } from './lib/routes.ts'
 import { useHash, usePublicRoute } from './lib/useRoute.ts'
@@ -27,15 +28,23 @@ function Gate() {
   if (state.status === 'anonymous') {
     if (!isKnownPublicHash(hash)) {
       return (
-        <main className="login">
-          <div className="login-card">
-            <NotFoundPage />
-          </div>
-        </main>
+        <>
+          <ThemeToggle className="theme-fab" />
+          <main className="login">
+            <div className="login-card">
+              <NotFoundPage />
+            </div>
+          </main>
+        </>
       )
     }
     if (publicRoute === 'plans') return <PlansPage />
-    return publicRoute === 'register' ? <RegisterPage /> : <LoginPage />
+    return (
+      <>
+        <ThemeToggle className="theme-fab" />
+        {publicRoute === 'register' ? <RegisterPage /> : <LoginPage />}
+      </>
+    )
   }
   // مستخدم المنصة = لوحة الإدارة، ومستخدم الشركة = لوحة الشركة. الخادم بيفرض الصلاحيات في الحالتين.
   return state.user.kind === 'platform' ? <AdminApp user={state.user} /> : <CompanyApp user={state.user} />

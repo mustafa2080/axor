@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/cairo'
 import './index.css'
 import './depth.css'
+import './shell.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

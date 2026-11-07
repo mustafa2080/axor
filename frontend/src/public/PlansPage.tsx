@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { loadPublicCatalog } from '../api/company.ts'
 import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
+import { ThemeToggle } from '../components/ThemeToggle.tsx'
 import { OfferCards } from '../company/OfferCards.tsx'
 import { buildOffers } from '../lib/company-offers.ts'
 import type { Offers } from '../lib/company-offers.ts'
@@ -49,6 +50,7 @@ export function PlansPage() {
           </a>
         </nav>
         <div className="user">
+          <ThemeToggle />
           <a className="btn btn-small" href="#/login">
             دخول
           </a>

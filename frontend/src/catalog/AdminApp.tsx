@@ -2,8 +2,10 @@ import { useAuth } from '../auth/auth-context.ts'
 import { AuditPage } from '../audit/AuditPage.tsx'
 import type { SessionUser } from '../api/client.ts'
 import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
-import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
-import { UserBar } from '../components/UserBar.tsx'
+import { ErrorNote, Loading } from '../components/ui.tsx'
+import { AppShell } from '../components/AppShell.tsx'
+import type { NavItem } from '../components/AppShell.tsx'
+import { BoxIcon, BuildingIcon, LayersIcon, RepeatIcon, ShieldIcon } from '../components/icons.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
@@ -33,30 +35,21 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const { state, reload } = useCatalog()
   const catalogRoute = route === 'products' || route === 'plans'
 
+  const items: NavItem[] = [
+    { href: '#/products', label: 'الأنظمة والأنشطة', icon: <BoxIcon />, current: known && route === 'products' },
+    { href: '#/plans', label: 'الباقات', icon: <LayersIcon />, current: known && route === 'plans' },
+    { href: '#/subscriptions', label: 'الاشتراكات', icon: <RepeatIcon />, current: known && route === 'subscriptions' },
+    { href: '#/tenants', label: 'الشركات', icon: <BuildingIcon />, current: known && route === 'tenants' },
+    { href: '#/audit', label: 'سجل التدقيق', icon: <ShieldIcon />, current: known && route === 'audit' },
+  ]
+
   return (
-    <>
-      <header className="topbar">
-        <BrandMark />
-        <nav aria-label="التنقل الرئيسي">
-          <a href="#/products" aria-current={known && route === 'products' ? 'page' : undefined}>
-            الأنظمة والأنشطة
-          </a>
-          <a href="#/plans" aria-current={known && route === 'plans' ? 'page' : undefined}>
-            الباقات
-          </a>
-          <a href="#/subscriptions" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
-            الاشتراكات
-          </a>
-          <a href="#/tenants" aria-current={known && route === 'tenants' ? 'page' : undefined}>
-            الشركات
-          </a>
-          <a href="#/audit" aria-current={known && route === 'audit' ? 'page' : undefined}>
-            سجل التدقيق
-          </a>
-        </nav>
-        <UserBar user={user} roleLabel={platformRoleLabel[user.role] ?? user.role} onSignOut={onSignOut} />
-      </header>
-      <main className="content">
+    <AppShell
+      items={items}
+      user={user}
+      roleLabel={platformRoleLabel[user.role] ?? user.role}
+      onSignOut={onSignOut}
+    >
         {!known ? <NotFoundPage /> : null}
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
         {known && route === 'tenants' ? <TenantsPage /> : null}
@@ -76,8 +69,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         {known && state.status === 'ready' && route === 'plans' ? (
           <PlansPage products={state.products} reload={reload} />
         ) : null}
-      </main>
-    </>
+    </AppShell>
   )
 }
 

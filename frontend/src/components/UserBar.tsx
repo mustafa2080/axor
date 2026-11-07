@@ -6,6 +6,7 @@ import { useAuth } from '../auth/auth-context.ts'
 import { checkFullName, FULL_NAME_MAX } from '../lib/profile-name.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
 import { ErrorNote, Field, Modal } from './ui.tsx'
+import { LogoutIcon, UserIcon } from './icons.tsx'
 
 function ProfileModal({ user, onClose }: { user: SessionUser; onClose: () => void }) {
   const { replaceUser } = useAuth()
@@ -55,7 +56,7 @@ function ProfileModal({ user, onClose }: { user: SessionUser; onClose: () => voi
   )
 }
 
-/** شريط المستخدم في أعلى اللوحة (الاسم أو البريد، الدور، حسابي، خروج). مشترك بين لوحة الشركة والمنصة. */
+/** بيانات المستخدم وأزرار حسابي وخروج في أسفل القائمة الجانبية. مشترك بين لوحة الشركة والمنصة. */
 export function UserBar({
   user,
   roleLabel,
@@ -67,15 +68,19 @@ export function UserBar({
 }) {
   const [editing, setEditing] = useState(false)
   return (
-    <div className="user">
-      {user.fullName !== null && user.fullName !== '' ? <span>{user.fullName}</span> : null}
-      <span className="ltr">{user.email}</span>
-      <span className="muted">{roleLabel}</span>
-      <button type="button" className="btn btn-small" onClick={() => setEditing(true)}>
-        حسابي
+    <div className="side-user">
+      <div className="side-user-info nav-label">
+        {user.fullName !== null && user.fullName !== '' ? <strong>{user.fullName}</strong> : null}
+        <span className="ltr">{user.email}</span>
+        <span className="muted">{roleLabel}</span>
+      </div>
+      <button type="button" className="side-item" onClick={() => setEditing(true)} title="حسابي">
+        <UserIcon />
+        <span className="nav-label">حسابي</span>
       </button>
-      <button type="button" className="btn btn-small" onClick={onSignOut}>
-        خروج
+      <button type="button" className="side-item" onClick={onSignOut} title="خروج">
+        <LogoutIcon />
+        <span className="nav-label">خروج</span>
       </button>
       {editing ? <ProfileModal user={user} onClose={() => setEditing(false)} /> : null}
     </div>

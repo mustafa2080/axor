@@ -43,28 +43,27 @@
     inset 0 2px 3px rgb(var(--drop) / 0.09), 0 0 0 1px var(--border-strong), 0 1px 0 var(--lit);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --drop: 0 0 0;
-    --lit: rgb(255 255 255 / 0.07);
-    --slab-top: #1c222c;
-    --slab-bottom: #151a22;
-    --sheen: rgb(255 255 255 / 0.05);
-    --edge: #0a0d12;
-    --edge-deep: #06080b;
-    --grid: rgb(255 255 255 / 0.06);
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --drop: 0 0 0;
+  --lit: rgb(255 255 255 / 0.07);
+  --slab-top: #1c222c;
+  --slab-bottom: #151a22;
+  --sheen: rgb(255 255 255 / 0.05);
+  --edge: #0a0d12;
+  --edge-deep: #06080b;
+  --grid: rgb(255 255 255 / 0.06);
 
-    --slab-1:
-      inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 1px 0 var(--edge), 0 2px 0 var(--edge-deep),
-      0 12px 22px -8px rgb(0 0 0 / 0.55);
-    --slab-2:
-      inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 2px 0 var(--edge), 0 4px 0 var(--edge-deep),
-      0 20px 34px -10px rgb(0 0 0 / 0.6), 0 40px 70px -30px rgb(0 0 0 / 0.7);
-    --slab-3:
-      inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 3px 0 var(--edge), 0 6px 0 var(--edge-deep),
-      0 30px 64px -12px rgb(0 0 0 / 0.75);
-    --inset: inset 0 2px 4px rgb(0 0 0 / 0.45), 0 0 0 1px var(--border-strong), 0 1px 0 var(--lit);
-  }
+  --slab-1:
+    inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 1px 0 var(--edge), 0 2px 0 var(--edge-deep),
+    0 12px 22px -8px rgb(0 0 0 / 0.55);
+  --slab-2:
+    inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 2px 0 var(--edge), 0 4px 0 var(--edge-deep),
+    0 20px 34px -10px rgb(0 0 0 / 0.6), 0 40px 70px -30px rgb(0 0 0 / 0.7);
+  --slab-3:
+    inset 0 1px 0 var(--lit), 0 0 0 1px var(--ring), 0 3px 0 var(--edge), 0 6px 0 var(--edge-deep),
+    0 30px 64px -12px rgb(0 0 0 / 0.75);
+  --inset: inset 0 2px 4px rgb(0 0 0 / 0.45), 0 0 0 1px var(--border-strong), 0 1px 0 var(--lit);
 }
 
 /* الخلفية: ضوء من فوق، والأرض بتغمق تدريجياً */

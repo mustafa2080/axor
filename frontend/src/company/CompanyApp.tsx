@@ -1,8 +1,9 @@
 import { useAuth } from '../auth/auth-context.ts'
 import type { SessionUser } from '../api/client.ts'
 import { NotFoundPage } from '../components/ErrorPage.tsx'
-import { BrandMark } from '../components/ui.tsx'
-import { UserBar } from '../components/UserBar.tsx'
+import { AppShell } from '../components/AppShell.tsx'
+import type { NavItem } from '../components/AppShell.tsx'
+import { PlayIcon, RepeatIcon, UsersIcon } from '../components/icons.tsx'
 import { tenantRoleLabel } from '../lib/labels.ts'
 import { isKnownCompanyHash } from '../lib/routes.ts'
 import { useCompanyRoute, useHash } from '../lib/useRoute.ts'
@@ -22,26 +23,21 @@ export function CompanyApp({ user }: { user: SessionUser }) {
   // قراءة الأعضاء لمالك الشركة والمدير والعضو (users:read). الخادم هو اللي بيحسم.
   const canSeeMembers = user.kind === 'tenant' && user.role !== 'read_only'
 
+  const items: NavItem[] = [
+    { href: '#/', label: 'اشتراكاتي', icon: <RepeatIcon />, current: known && route === 'subscriptions' },
+    { href: '#/start', label: 'ابدأ تجربة', icon: <PlayIcon />, current: known && route === 'start' },
+    ...(canSeeMembers
+      ? [{ href: '#/members', label: 'الأعضاء', icon: <UsersIcon />, current: known && route === 'members' }]
+      : []),
+  ]
+
   return (
-    <>
-      <header className="topbar">
-        <BrandMark />
-        <nav aria-label="التنقل الرئيسي">
-          <a href="#/" aria-current={known && route === 'subscriptions' ? 'page' : undefined}>
-            اشتراكاتي
-          </a>
-          <a href="#/start" aria-current={known && route === 'start' ? 'page' : undefined}>
-            ابدأ تجربة
-          </a>
-          {canSeeMembers ? (
-            <a href="#/members" aria-current={known && route === 'members' ? 'page' : undefined}>
-              الأعضاء
-            </a>
-          ) : null}
-        </nav>
-        <UserBar user={user} roleLabel={tenantRoleLabel[user.role] ?? user.role} onSignOut={() => void signOut()} />
-      </header>
-      <main className="content">
+    <AppShell
+      items={items}
+      user={user}
+      roleLabel={tenantRoleLabel[user.role] ?? user.role}
+      onSignOut={() => void signOut()}
+    >
         {!known ? (
           <NotFoundPage />
         ) : route === 'start' ? (
@@ -51,7 +47,6 @@ export function CompanyApp({ user }: { user: SessionUser }) {
         ) : (
           <MySubscriptions canManage={canManage} />
         )}
-      </main>
-    </>
+    </AppShell>
   )
 }
