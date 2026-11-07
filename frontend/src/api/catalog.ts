@@ -97,8 +97,8 @@ export const createPlan = (
 ) => api<Plan>('POST', `/admin/catalog/products/${productId}/plans`, input)
 
 /** تغيير السعر أو الحدود أو الميزات = نسخة جديدة بتبقى الحالية (النسخ القديمة ما بتتغيرش). */
-export const addPlanVersion = (planId: string, spec: VersionSpec) =>
-  api<Plan>('POST', `/admin/catalog/plans/${planId}/versions`, spec)
+export const addPlanVersion = (planId: string, spec: VersionSpec, idempotencyKey?: string) =>
+  api<Plan>('POST', `/admin/catalog/plans/${planId}/versions`, spec, { idempotencyKey })
 
 export const updatePlan = (id: string, changes: { status?: PlanStatus; currentVersionId?: string }) =>
   api<Plan>('PATCH', `/admin/catalog/plans/${id}`, changes)

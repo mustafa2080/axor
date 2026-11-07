@@ -215,8 +215,8 @@ export function PlansPage({
           planCode={editing.code}
           current={editing.versions.find((version) => version.id === editing.currentVersionId)}
           onClose={() => setEditing(null)}
-          onSubmit={async (spec) => {
-            await addPlanVersion(editing.id, spec)
+          onSubmit={async (spec, idempotencyKey) => {
+            await addPlanVersion(editing.id, spec, idempotencyKey)
             await reload()
           }}
         />

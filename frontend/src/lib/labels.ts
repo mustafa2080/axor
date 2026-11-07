@@ -79,26 +79,58 @@ function issuesOf(details: unknown): Issue[] {
   )
 }
 
-function retryAfterSeconds(details: unknown): number | null {
-  const value = (details as { retryAfterSeconds?: unknown } | null | undefined)?.retryAfterSeconds
+/** ثواني الانتظار: من هيدر Retry-After لو موجود، وإلا من details (الخادم بيحطها هناك لـ 429 و409 المفتاح). */
+function retryAfterSeconds(error: ApiError): number | null {
+  if (error.retryAfterSeconds !== null) return error.retryAfterSeconds
+  const value = (error.details as { retryAfterSeconds?: unknown } | null | undefined)?.retryAfterSeconds
   return typeof value === 'number' ? value : null
+}
+
+/**
+ * retrySafe: العملية دي بتتبعت بمفتاح Idempotency-Key وبيتعاد نفسه في كل محاولة (ADR-0026)،
+ * فلو الخادم قال إن نتيجتها مجهولة (504) المستخدم يقدر يضغط تاني من غير ما تتنفّذ مرتين.
+ */
+export interface ErrorMessageOptions {
+  retrySafe?: boolean
 }
 
 /** رسالة عربي للمستخدم من أي خطأ. الرسائل الإنجليزي اللي من الخادم ما بتتعرضش إلا في أخطاء التحقق. */
 export function errorMessage(
   error: unknown,
   context: 'login' | 'general' | 'subscription' | 'member' | 'tenant' = 'general',
+  options: ErrorMessageOptions = {},
 ): string {
   if (!(error instanceof ApiError)) return 'حصل خطأ غير متوقع. جرّب تاني.'
   switch (error.code) {
     case 'NETWORK_ERROR':
       return 'تعذّر الاتصال بالخادم. اتأكد إن الباك شغّال (pnpm dev:api).'
     case 'TOO_MANY_REQUESTS': {
-      const seconds = retryAfterSeconds(error.details)
+      const seconds = retryAfterSeconds(error)
       return seconds === null
         ? 'محاولات كتير. استنى شوية وجرّب تاني.'
         : `محاولات كتير. جرّب تاني بعد ${seconds} ثانية.`
     }
+    case 'SERVICE_BUSY': {
+      // الخادم مشغول ومفيش حاجة اتنفّذت نص تنفيذ (ADR-0019)، فالإعادة آمنة لأي عملية.
+      const seconds = retryAfterSeconds(error)
+      return seconds === null
+        ? 'الخدمة مشغولة دلوقتي. جرّب تاني بعد شوية.'
+        : `الخدمة مشغولة دلوقتي. جرّب تاني بعد ${seconds} ثانية.`
+    }
+    case 'REQUEST_TIMEOUT':
+      // ADR-0020: الـ 504 على كتابة معناه إن الشغل ممكن يكون كمّل في الخلفية. القراءة بس هي اللي معاها Retry-After.
+      if (retryAfterSeconds(error) !== null) return 'الطلب أخد وقت طويل. جرّب تاني بعد شوية.'
+      return options.retrySafe === true
+        ? 'الطلب أخد وقت طويل ونتيجته مش معروفة. تقدر تضغط تأكيد تاني: لو العملية اتنفّذت قبل كده مش هتتكرر.'
+        : 'الطلب أخد وقت طويل ونتيجته مش معروفة. اتأكد من الحالة الحالية قبل ما تعيد العملية.'
+    case 'IDEMPOTENCY_IN_PROGRESS': {
+      const seconds = retryAfterSeconds(error)
+      return seconds === null
+        ? 'نفس العملية لسه بتتنفّذ. استنى شوية وجرّب تاني.'
+        : `نفس العملية لسه بتتنفّذ. استنى ${seconds} ثانية وجرّب تاني.`
+    }
+    case 'IDEMPOTENCY_KEY_REUSED':
+      return 'حصل تعارض في تنفيذ العملية. حدّث الصفحة وجرّب تاني.'
     case 'UNAUTHORIZED':
       return context === 'login'
         ? 'الإيميل أو كلمة السر غير صحيحة.'

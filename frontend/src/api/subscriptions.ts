@@ -34,5 +34,6 @@ export const activateSubscription = (id: string, currentPeriodEnd: string) =>
 export const cancelSubscription = (id: string) =>
   api<AdminSubscription>('POST', `/admin/subscriptions/${id}/cancel`)
 
-export const extendTrial = (id: string, days: number) =>
-  api<AdminSubscription>('POST', `/admin/subscriptions/${id}/extend-trial`, { days })
+/** كل نداء بيزوّد الأيام، فبيتبعت معاه مفتاح Idempotency-Key عشان إعادة المحاولة ما تمدّدش مرتين. */
+export const extendTrial = (id: string, days: number, idempotencyKey?: string) =>
+  api<AdminSubscription>('POST', `/admin/subscriptions/${id}/extend-trial`, { days }, { idempotencyKey })

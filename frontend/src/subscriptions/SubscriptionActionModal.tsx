@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { activateSubscription, cancelSubscription, extendTrial } from '../api/subscriptions.ts'
 import type { AdminSubscription } from '../api/subscriptions.ts'
 import { ErrorNote, Field, Modal } from '../components/ui.tsx'
+import { createKeyHolder } from '../lib/idempotency.ts'
 import { errorMessage } from '../lib/labels.ts'
 import { dateInputValue, periodEndIso } from '../lib/subscription-actions.ts'
 import type { SubscriptionAction } from '../lib/subscription-actions.ts'
@@ -29,6 +30,7 @@ export function SubscriptionActionModal({
   const [days, setDays] = useState('7')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [keys] = useState(() => createKeyHolder())
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -48,7 +50,9 @@ export function SubscriptionActionModal({
         setError('عدد الأيام لازم يكون رقم صحيح من 1 لـ 90.')
         return
       }
-      run = () => extendTrial(subscription.id, count)
+      // كل نداء بيزوّد الأيام، فنفس المفتاح بيتعاد لنفس الاشتراك ونفس عدد الأيام (ADR-0026).
+      const key = keys.keyFor(`${subscription.id}:${count}`)
+      run = () => extendTrial(subscription.id, count, key)
     } else {
       run = () => cancelSubscription(subscription.id)
     }
@@ -56,10 +60,11 @@ export function SubscriptionActionModal({
     setBusy(true)
     try {
       await run()
+      keys.clear()
       onDone()
       onClose()
     } catch (caught) {
-      setError(errorMessage(caught, 'subscription'))
+      setError(errorMessage(caught, 'subscription', { retrySafe: action === 'extend' }))
     } finally {
       setBusy(false)
     }

@@ -61,3 +61,50 @@ describe('errorMessage (members and companies)', () => {
     expect(errorMessage(error)).toContain('الكود مكرر')
   })
 })
+
+describe('errorMessage (timeouts and busy service, ADR-0019 / ADR-0020 / ADR-0026)', () => {
+  const timeout = (retryAfter: number | null) =>
+    new ApiError(504, 'REQUEST_TIMEOUT', 'x', undefined, retryAfter)
+
+  it('a write timeout says the outcome is unknown and never invites a blind retry', () => {
+    const message = errorMessage(timeout(null))
+    expect(message).toContain('نتيجته مش معروفة')
+    expect(message).toContain('اتأكد من الحالة')
+    expect(message).not.toContain('تأكيد تاني')
+    expect(message).not.toMatch(/[a-z]{4}/)
+  })
+
+  it('a write timeout on a retry-safe operation says pressing confirm again is safe', () => {
+    const message = errorMessage(timeout(null), 'subscription', { retrySafe: true })
+    expect(message).toContain('نتيجته مش معروفة')
+    expect(message).toContain('مش هتتكرر')
+  })
+
+  it('a read timeout (Retry-After present) just asks to try again shortly', () => {
+    const message = errorMessage(timeout(5))
+    expect(message).toContain('جرّب تاني')
+    expect(message).not.toContain('نتيجته مش معروفة')
+  })
+
+  it('a busy service shows the wait from Retry-After, or a generic wait without it', () => {
+    expect(errorMessage(new ApiError(503, 'SERVICE_BUSY', 'x', undefined, 5))).toContain('5 ثانية')
+    expect(errorMessage(new ApiError(503, 'SERVICE_BUSY', 'x'))).toContain('بعد شوية')
+  })
+
+  it('an in-flight idempotent request asks to wait, using details when there is no header', () => {
+    const fromDetails = new ApiError(409, 'IDEMPOTENCY_IN_PROGRESS', 'x', { retryAfterSeconds: 2 })
+    expect(errorMessage(fromDetails)).toContain('2 ثانية')
+    expect(errorMessage(new ApiError(409, 'IDEMPOTENCY_IN_PROGRESS', 'x'))).toContain('لسه بتتنفّذ')
+  })
+
+  it('a reused key tells the user to refresh, in Arabic only', () => {
+    const message = errorMessage(new ApiError(422, 'IDEMPOTENCY_KEY_REUSED', 'x'))
+    expect(message).toContain('حدّث الصفحة')
+    expect(message).not.toMatch(/[a-z]{4}/)
+  })
+
+  it('the rate-limit message still reads the wait from details', () => {
+    const error = new ApiError(429, 'TOO_MANY_REQUESTS', 'x', { retryAfterSeconds: 30 })
+    expect(errorMessage(error)).toContain('30 ثانية')
+  })
+})

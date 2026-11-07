@@ -23,14 +23,34 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly details: unknown
+  /** من هيدر Retry-After لو الخادم بعته (بالثواني)، وإلا null. */
+  readonly retryAfterSeconds: number | null
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.details = details
+    this.retryAfterSeconds = retryAfterSeconds
   }
+}
+
+/** خيارات طلب اختيارية. idempotencyKey بيتبعت كهيدر `Idempotency-Key` (ADR-0026). */
+export interface RequestOptions {
+  idempotencyKey?: string | undefined
+}
+
+/** ثواني من هيدر Retry-After. الصيغة الرقمية بس (الخادم بيبعتها كده)، وأي حاجة تانية = null. */
+export function parseRetryAfter(value: string | null): number | null {
+  if (value === null || !/^\d{1,4}$/.test(value.trim())) return null
+  return Number(value.trim())
 }
 
 let accessToken: string | null = null
@@ -46,10 +66,16 @@ interface ErrorBody {
   error?: { code?: string; message?: string; details?: unknown }
 }
 
-async function rawRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+async function rawRequest(
+  method: string,
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<unknown> {
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (accessToken !== null) headers.authorization = `Bearer ${accessToken}`
+  if (options.idempotencyKey !== undefined) headers['idempotency-key'] = options.idempotencyKey
 
   let response: Response
   try {
@@ -72,6 +98,7 @@ async function rawRequest(method: string, path: string, body?: unknown): Promise
       error?.code ?? 'UNKNOWN',
       error?.message ?? `HTTP ${response.status}`,
       error?.details,
+      parseRetryAfter(response.headers.get('retry-after')),
     )
   }
   return payload
@@ -131,10 +158,47 @@ export function updateProfile(fullName: string | null): Promise<SessionUser> {
   return api<SessionUser>('PATCH', '/auth/me', { fullName })
 }
 
-/** طلب موثّق. لو رجع 401 بيجدد الجلسة مرة واحدة ويعيد الطلب، ولو فشل التجديد بيرجّع لشاشة الدخول. */
-export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** أقصى انتظار بنقبله قبل إعادة محاولة GET تلقائياً. أكتر من كده بنسيب القرار للمستخدم. */
+export const MAX_AUTO_RETRY_WAIT_SECONDS = 10
+
+/**
+ * إعادة محاولة واحدة لطلبات القراءة (GET) بس لما الخادم يقول 503 أو 504 ومعاه Retry-After قصير
+ * (ADR-0019 وADR-0020: الخادم بيبعت الهيدر ده للقراءة بس). الكتابة ما بتتعادش هنا أبداً: الـ 504
+ * على كتابة معناه إن نتيجتها مجهولة، والإعادة الآمنة لها بتتم بمفتاح Idempotency-Key من الشاشة.
+ */
+async function send(
+  method: string,
+  path: string,
+  body: unknown,
+  options: RequestOptions,
+): Promise<unknown> {
   try {
-    return unwrap<T>(await rawRequest(method, path, body))
+    return await rawRequest(method, path, body, options)
+  } catch (error) {
+    const wait = error instanceof ApiError ? error.retryAfterSeconds : null
+    if (
+      method !== 'GET' ||
+      !(error instanceof ApiError) ||
+      (error.status !== 503 && error.status !== 504) ||
+      wait === null ||
+      wait > MAX_AUTO_RETRY_WAIT_SECONDS
+    ) {
+      throw error
+    }
+    await new Promise((resolve) => setTimeout(resolve, wait * 1000))
+    return rawRequest(method, path, body, options)
+  }
+}
+
+/** طلب موثّق. لو رجع 401 بيجدد الجلسة مرة واحدة ويعيد الطلب، ولو فشل التجديد بيرجّع لشاشة الدخول. */
+export async function api<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
+  try {
+    return unwrap<T>(await send(method, path, body, options))
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error
     const session = await refreshSession()
@@ -142,6 +206,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
       onSessionLost?.()
       throw error
     }
-    return unwrap<T>(await rawRequest(method, path, body))
+    // نفس المفتاح في إعادة المحاولة بعد تجديد الجلسة: لو الطلب الأول وصل فعلاً الخادم هيرجّع رده.
+    return unwrap<T>(await send(method, path, body, options))
   }
 }

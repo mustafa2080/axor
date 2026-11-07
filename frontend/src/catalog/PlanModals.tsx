@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { PLAN_STATUSES } from '../api/catalog.ts'
 import type { PlanStatus, PlanVersion, Product, VersionSpec } from '../api/catalog.ts'
 import { ErrorNote, Field, Modal } from '../components/ui.tsx'
+import { createKeyHolder } from '../lib/idempotency.ts'
 import { planStatusLabel } from '../lib/labels.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
 import { VersionFields } from './VersionFields.tsx'
@@ -99,11 +100,13 @@ export function NewVersionModal({
 }: {
   planCode: string
   current: PlanVersion | undefined
-  onSubmit: (spec: VersionSpec) => Promise<void>
+  onSubmit: (spec: VersionSpec, idempotencyKey: string) => Promise<void>
   onClose: () => void
 }) {
   const [draft, setDraft] = useState(() => (current === undefined ? emptyDraft() : draftFromSpec(current)))
-  const { busy, error, setError, run } = useSubmit()
+  // كل حفظ بيعمل نسخة جديدة، فإعادة المحاولة لنفس المحتوى لازم تاخد نفس المفتاح (ADR-0026).
+  const [keys] = useState(() => createKeyHolder())
+  const { busy, error, setError, run } = useSubmit({ retrySafe: true })
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -116,8 +119,12 @@ export function NewVersionModal({
       setError('مفيش تغيير عن النسخة الحالية.')
       return
     }
-    const ok = await run(() => onSubmit(result.spec))
-    if (ok) onClose()
+    const key = keys.keyFor(JSON.stringify(result.spec))
+    const ok = await run(() => onSubmit(result.spec, key))
+    if (ok) {
+      keys.clear()
+      onClose()
+    }
   }
 
   return (
