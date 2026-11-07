@@ -19,6 +19,32 @@ const envSchema = z.object({
     .refine((value) => !value.startsWith('CHANGE_ME'), 'JWT_ACCESS_SECRET still has the placeholder value'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+}).superRefine((env, ctx) => {
+  // Production hardening: a setting that is fine on a laptop but unsafe on a server stops the
+  // process at startup instead of running quietly with it (ADR-0016).
+  if (env.NODE_ENV !== 'production') return;
+
+  if (new URL(env.WEB_ORIGIN).protocol !== 'https:') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['WEB_ORIGIN'],
+      message: 'WEB_ORIGIN must be an https origin in production',
+    });
+  }
+  if (env.LOG_LEVEL === 'debug' || env.LOG_LEVEL === 'trace') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LOG_LEVEL'],
+      message: 'LOG_LEVEL must not be debug or trace in production',
+    });
+  }
+  if (decodeURIComponent(new URL(env.DATABASE_URL).username).toLowerCase() === 'root') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['DATABASE_URL'],
+      message: 'DATABASE_URL must use a dedicated least-privilege user, not root, in production',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

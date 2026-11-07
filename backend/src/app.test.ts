@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
+import { AppError } from './common/errors.js';
 import { loadEnv } from './config/env.js';
 
 const testUrl = 'mysql://user:pass@127.0.0.1:3306/axor_test';
@@ -88,6 +89,7 @@ describe('browser security: Helmet and CORS', () => {
     const prodEnv = loadEnv({
       NODE_ENV: 'production',
       LOG_LEVEL: 'silent',
+      WEB_ORIGIN: 'https://axor.example',
       DATABASE_URL: testUrl,
       JWT_ACCESS_SECRET: testSecret,
     });
@@ -180,5 +182,108 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv({ DATABASE_URL: 'postgres://u:p@127.0.0.1/db', JWT_ACCESS_SECRET: testSecret }),
     ).toThrow();
+  });
+});
+
+
+describe('production hardening (ADR-0016)', () => {
+  const prod = (overrides: Record<string, string> = {}) =>
+    loadEnv({
+      NODE_ENV: 'production',
+      LOG_LEVEL: 'silent',
+      WEB_ORIGIN: 'https://axor.example',
+      DATABASE_URL: 'mysql://axor_app:pass@127.0.0.1:3306/axor_prod',
+      JWT_ACCESS_SECRET: testSecret,
+      ...overrides,
+    });
+
+  it('accepts a sound production configuration', () => {
+    expect(prod().NODE_ENV).toBe('production');
+    for (const level of ['fatal', 'error', 'warn', 'info', 'silent']) {
+      expect(prod({ LOG_LEVEL: level }).LOG_LEVEL).toBe(level);
+    }
+  });
+
+  it('refuses to start with a plain-http web origin', () => {
+    expect(() => prod({ WEB_ORIGIN: 'http://axor.example' })).toThrow(/WEB_ORIGIN/);
+    expect(() => prod({ WEB_ORIGIN: 'http://localhost:5173' })).toThrow(/WEB_ORIGIN/);
+  });
+
+  it('refuses to start with debug or trace logging', () => {
+    expect(() => prod({ LOG_LEVEL: 'debug' })).toThrow(/LOG_LEVEL/);
+    expect(() => prod({ LOG_LEVEL: 'trace' })).toThrow(/LOG_LEVEL/);
+  });
+
+  it('refuses to start with the database root user, however it is spelled', () => {
+    for (const user of ['root', 'ROOT', '%72oot']) {
+      expect(() => prod({ DATABASE_URL: `mysql://${user}:pass@127.0.0.1:3306/axor_prod` })).toThrow(
+        /DATABASE_URL/,
+      );
+    }
+  });
+
+  it('reports every problem at once and never echoes the values it rejected', () => {
+    let message = '';
+    try {
+      prod({
+        WEB_ORIGIN: 'http://axor.example',
+        LOG_LEVEL: 'debug',
+        DATABASE_URL: 'mysql://root:hunter2-secret@127.0.0.1:3306/axor_prod',
+      });
+    } catch (error) {
+      message = String(error instanceof Error ? error.message : error);
+    }
+    expect(message).toContain('WEB_ORIGIN');
+    expect(message).toContain('LOG_LEVEL');
+    expect(message).toContain('DATABASE_URL');
+    expect(message).not.toContain('hunter2-secret');
+  });
+
+  it('keeps the same settings allowed outside production, where they are needed', () => {
+    for (const nodeEnv of ['development', 'test'] as const) {
+      const parsed = loadEnv({
+        NODE_ENV: nodeEnv,
+        LOG_LEVEL: 'debug',
+        WEB_ORIGIN: 'http://localhost:5173',
+        DATABASE_URL: 'mysql://root:pass@127.0.0.1:3306/axor_dev',
+        JWT_ACCESS_SECRET: testSecret,
+      });
+      expect(parsed.LOG_LEVEL).toBe('debug');
+    }
+  });
+
+  it('answers every kind of failure with the unified body only: no stack, no internals', async () => {
+    const app = buildApp(prod(), healthyDeps);
+    app.get('/boom', async () => {
+      throw new Error('db password is hunter2-secret at /srv/axor/db.ts');
+    });
+    app.get('/boom-app-error', async () => {
+      throw new AppError(500, 'DB_FAILURE', 'connection to 10.0.0.5 failed', {
+        query: 'SELECT * FROM users',
+      });
+    });
+    app.post('/json', async () => ({ ok: true }));
+
+    const responses = await Promise.all([
+      app.inject({ method: 'GET', url: '/boom' }),
+      app.inject({ method: 'GET', url: '/boom-app-error' }),
+      app.inject({ method: 'GET', url: '/nope' }),
+      app.inject({
+        method: 'POST',
+        url: '/json',
+        headers: { 'content-type': 'application/json' },
+        payload: '{"a":',
+      }),
+    ]);
+    expect(responses.map((r) => r.statusCode)).toEqual([500, 500, 404, 400]);
+
+    for (const res of responses) {
+      const body = res.json<{ error: Record<string, unknown> }>();
+      expect(Object.keys(body)).toEqual(['error']);
+      expect(Object.keys(body.error).sort()).toEqual(['code', 'message']);
+      expect(res.body).not.toMatch(/hunter2|10\.0\.0\.5|SELECT|\/srv\/|\.ts|node_modules|\bat \S+ \(/);
+      expect(res.body.toLowerCase()).not.toContain('stack');
+      expect(res.headers['x-powered-by']).toBeUndefined();
+    }
   });
 });

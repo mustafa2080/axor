@@ -555,14 +555,22 @@ describe('CORS on the real auth endpoints', () => {
 
 describe('production cookie attributes', () => {
   it('uses the __Secure- prefix and the Secure flag', async () => {
-    const prodEnv = loadEnv({ ...process.env, NODE_ENV: 'production', LOG_LEVEL: 'silent' });
+    // Production refuses a plain-http web origin (ADR-0016), so this app gets an https one and the
+    // login request comes from it.
+    const prodOrigin = 'https://axor.example';
+    const prodEnv = loadEnv({
+      ...process.env,
+      NODE_ENV: 'production',
+      LOG_LEVEL: 'silent',
+      WEB_ORIGIN: prodOrigin,
+    });
     const prodApp = newApp(prodEnv);
     await prodApp.ready();
     try {
       const res = await prodApp.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
-        headers: { origin: ORIGIN },
+        headers: { origin: prodOrigin },
         payload: { email: 'owner@alpha.test', password: PASSWORD },
       });
       expect(res.statusCode).toBe(200);
