@@ -12,6 +12,18 @@ describe('publicRouteOf', () => {
     expect(publicRouteOf('#/register')).toBe('register')
     expect(publicRouteOf('#/register?product=a&plan=b')).toBe('register')
   })
+
+  it('maps the catalog pages, taking the system code from the query', () => {
+    expect(publicRouteOf('#/systems')).toBe('systems')
+    expect(publicRouteOf('#/system?code=sys')).toBe('system')
+    expect(publicRouteOf('#/system?code=sys&activity=retail')).toBe('system')
+    expect(publicRouteOf('#/trial')).toBe('trial')
+    expect(publicRouteOf('#/plans?product=sys&view=compare')).toBe('plans')
+  })
+
+  it('does not read inherited object keys as routes', () => {
+    for (const hash of ['#/constructor', '#/__proto__', '#/toString']) expect(publicRouteOf(hash), hash).toBe('home')
+  })
 })
 
 describe('hashPath', () => {
@@ -25,8 +37,14 @@ describe('hashPath', () => {
 
 describe('isKnownPublicHash', () => {
   it('accepts home and the public pages, with or without a query', () => {
-    for (const hash of ['', '#', '#/', '#/login', '#/register', '#/plans', '#/register?product=a&plan=b']) {
+    for (const hash of ['', '#', '#/', '#/login', '#/register', '#/plans', '#/register?product=a&plan=b', '#/systems', '#/system?code=a', '#/trial', '#/plans?view=compare']) {
       expect(isKnownPublicHash(hash), hash).toBe(true)
+    }
+  })
+
+  it('does not accept the pages that are not built yet', () => {
+    for (const hash of ['#/faq', '#/contact', '#/terms', '#/privacy', '#/system/sys', '#/systems/x']) {
+      expect(isKnownPublicHash(hash), hash).toBe(false)
     }
   })
 

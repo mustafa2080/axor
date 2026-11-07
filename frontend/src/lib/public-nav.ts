@@ -1,5 +1,6 @@
+
 // روابط الصفحات العامة (الـ navbar والـ footer) ومنطق «الصفحة الحالية». نقي من غير DOM عشان يتختبر.
-// الصفحات اللي مش موجودة (الشروط والخصوصية والتواصل) مش بتتحط هنا لحد ما تتبني وتتعتمد.
+// أي رابط بيتضاف هنا لازم صفحته تكون موجودة (الاختبار بيتأكد إن كل رابط معروف في `routes.ts`).
 
 import { hashPath } from './routes.ts'
 
@@ -10,8 +11,12 @@ export interface PublicLink {
 
 export const PUBLIC_NAV: readonly PublicLink[] = [
   { href: '#/', label: 'الرئيسية' },
+  { href: '#/systems', label: 'الأنظمة' },
   { href: '#/plans', label: 'الباقات' },
 ]
+
+/** روابط المعلومات (الـ footer). الأسئلة والتواصل والشروط والخصوصية بتتضاف لما صفحاتها تتبني وتتعتمد. */
+export const PUBLIC_INFO_LINKS: readonly PublicLink[] = [{ href: '#/trial', label: 'شروط التجربة المجانية' }]
 
 export const PUBLIC_ACCOUNT_LINKS: readonly PublicLink[] = [
   { href: '#/login', label: 'دخول' },
@@ -20,9 +25,13 @@ export const PUBLIC_ACCOUNT_LINKS: readonly PublicLink[] = [
 
 const HOME_PATHS = new Set(['', '#', '#/'])
 
+// صفحات فرعية بتضيّء رابط صفحة أم: تفاصيل نظام (`#/system`) تحت «الأنظمة».
+const PARENT_OF: Readonly<Record<string, string>> = { '#/system': '#/systems' }
+
 /** الرابط ده هو الصفحة الحالية؟ الرئيسية بتتطابق مع الـ hash الفاضي و`#` و`#/`. */
 export function isCurrentPublicLink(href: string, hash: string): boolean {
   const path = hashPath(hash)
   if (href === '#/') return HOME_PATHS.has(path)
-  return path === href
+  const current = Object.hasOwn(PARENT_OF, path) ? PARENT_OF[path] : path
+  return current === href
 }

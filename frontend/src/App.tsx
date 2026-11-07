@@ -10,9 +10,33 @@ import { OfflineBanner } from './components/OfflineBanner.tsx'
 import { PublicLayout } from './components/PublicLayout.tsx'
 import { Spinner } from './components/ui.tsx'
 import { isKnownPublicHash } from './lib/routes.ts'
+import type { PublicRoute } from './lib/routes.ts'
 import { useHash, usePublicRoute } from './lib/useRoute.ts'
 import { HomePage } from './public/HomePage.tsx'
 import { PlansPage } from './public/PlansPage.tsx'
+import { SystemPage } from './public/SystemPage.tsx'
+import { SystemsPage } from './public/SystemsPage.tsx'
+import { TrialPage } from './public/TrialPage.tsx'
+
+/** الصفحة العامة لكل مسار. `switch` شامل: لو اتضاف مسار جديد من غير صفحة، الـ typecheck بيفشل. */
+function PublicPage({ route }: { route: PublicRoute }) {
+  switch (route) {
+    case 'plans':
+      return <PlansPage />
+    case 'systems':
+      return <SystemsPage />
+    case 'system':
+      return <SystemPage />
+    case 'trial':
+      return <TrialPage />
+    case 'register':
+      return <RegisterPage />
+    case 'login':
+      return <LoginPage />
+    case 'home':
+      return <HomePage />
+  }
+}
 
 function Gate() {
   const { state } = useAuth()
@@ -41,15 +65,7 @@ function Gate() {
     }
     return (
       <PublicLayout>
-        {publicRoute === 'plans' ? (
-          <PlansPage />
-        ) : publicRoute === 'register' ? (
-          <RegisterPage />
-        ) : publicRoute === 'login' ? (
-          <LoginPage />
-        ) : (
-          <HomePage />
-        )}
+        <PublicPage route={publicRoute} />
       </PublicLayout>
     )
   }

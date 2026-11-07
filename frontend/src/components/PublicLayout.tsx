@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { PUBLIC_ACCOUNT_LINKS, PUBLIC_NAV, isCurrentPublicLink } from '../lib/public-nav.ts'
+import {
+  PUBLIC_ACCOUNT_LINKS,
+  PUBLIC_INFO_LINKS,
+  PUBLIC_NAV,
+  isCurrentPublicLink,
+} from '../lib/public-nav.ts'
 import { useHash } from '../lib/useRoute.ts'
 import { CloseIcon, MenuIcon } from './icons.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
@@ -85,6 +90,14 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <nav className="pub-footer-col" aria-label="المنصة">
             <h2>المنصة</h2>
             {PUBLIC_NAV.map((link) => (
+              <a key={link.href} href={link.href}>
+                {link.label}
+              </a>
+            ))}
+          </nav>
+          <nav className="pub-footer-col" aria-label="معلومات">
+            <h2>معلومات</h2>
+            {PUBLIC_INFO_LINKS.map((link) => (
               <a key={link.href} href={link.href}>
                 {link.label}
               </a>
