@@ -48,7 +48,13 @@ export function createRefreshSessionsRepository(db: Database['db']) {
       // instead of surfacing a 500.
       return retryOnDeadlock<RotateResult>(() => db.transaction(async (tx) => {
         const [current] = await tx
-          .select()
+          .select({
+            id: refreshSessions.id,
+            userId: refreshSessions.userId,
+            familyId: refreshSessions.familyId,
+            revokedAt: refreshSessions.revokedAt,
+            expiresAt: refreshSessions.expiresAt,
+          })
           .from(refreshSessions)
           .where(eq(refreshSessions.tokenHash, oldTokenHash))
           .limit(1)

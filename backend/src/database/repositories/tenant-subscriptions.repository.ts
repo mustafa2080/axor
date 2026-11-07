@@ -3,7 +3,11 @@ import type { TenantScope } from '../../modules/authz/tenant-scope.js';
 import type { Database } from '../client.js';
 import { subscriptions } from '../schema/index.js';
 
-/** Subscriptions of ONE company. Creation and plan logic come later, with the trial rules. */
+/**
+ * Subscriptions of ONE company. Creation and plan logic come later, with the trial rules.
+ * Full rows on purpose: no route calls this yet (tests only), so the columns get chosen when the
+ * first one does (ADR-0019 §6).
+ */
 export class TenantSubscriptionsRepository {
   constructor(
     private readonly db: Database['db'],

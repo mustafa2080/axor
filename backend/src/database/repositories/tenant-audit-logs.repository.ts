@@ -54,7 +54,11 @@ export class TenantAuditLogsRepository {
     return id;
   }
 
-  /** Newest first. The page size is capped so one request cannot dump the whole trail. */
+  /**
+   * Newest first. The page size is capped so one request cannot dump the whole trail. Full rows
+   * (including `metadata`) on purpose: no route calls this yet (tests only), so the columns get
+   * chosen when the first one does (ADR-0019 §6).
+   */
   list(limit = 50) {
     const pageSize = Math.min(Math.max(Math.trunc(limit), 1), MAX_PAGE_SIZE);
     return this.db
