@@ -313,6 +313,86 @@ describe('plans and versions', () => {
   });
 });
 
+describe('paging the catalog', () => {
+  type Row = {
+    code: string;
+    name: string;
+    plans: Array<{ code: string; versions: Array<{ version: number; priceMinor: number }> }>;
+  };
+  const page = async (query: string) => {
+    const res = await admin('GET', query);
+    expect(res.statusCode).toBe(200);
+    return res.json<{ data: Row[]; meta: { limit: number; offset: number } }>();
+  };
+
+  async function seedThreeProducts() {
+    // Names deliberately differ from the creation order, so the test proves ordering by name.
+    const ids: Record<string, string> = {};
+    for (const [code, name] of [
+      ['p-b', 'Beta'],
+      ['p-a', 'Alpha'],
+      ['p-c', 'Gamma'],
+    ] as const) {
+      const res = await admin('POST', '/products', { code, name, status: 'available' });
+      expect(res.statusCode).toBe(201);
+      ids[code] = res.json<{ data: { id: string } }>().data.id;
+    }
+    return ids;
+  }
+
+  it('returns stable pages ordered by name, echoes limit/offset and ends with an empty page', async () => {
+    await seedThreeProducts();
+    const first = await page('?limit=2&offset=0');
+    expect(first.data.map((p) => p.name)).toEqual(['Alpha', 'Beta']);
+    expect(first.meta).toEqual({ limit: 2, offset: 0 });
+    const second = await page('?limit=2&offset=2');
+    expect(second.data.map((p) => p.name)).toEqual(['Gamma']);
+    expect((await page('?limit=2&offset=4')).data).toEqual([]);
+    // Defaults: everything fits in one default page of 50.
+    const all = await page('');
+    expect(all.data.map((p) => p.name)).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(all.meta).toEqual({ limit: 50, offset: 0 });
+  });
+
+  it('attaches each plan and ALL its versions to the right product on the same page', async () => {
+    const ids = await seedThreeProducts();
+    const alphaPlan = await createPlan(ids['p-a'] as string, 'basic');
+    await admin('POST', `/plans/${alphaPlan.id}/versions`, { ...VERSION, priceMinor: 59900 });
+    await createPlan(ids['p-b'] as string, 'pro', { ...VERSION, priceMinor: 99900 });
+
+    const rows = (await page('?limit=3')).data;
+    const alpha = rows.find((p) => p.code === 'p-a');
+    const beta = rows.find((p) => p.code === 'p-b');
+    const gamma = rows.find((p) => p.code === 'p-c');
+    expect(alpha?.plans.map((p) => p.code)).toEqual(['basic']);
+    expect(alpha?.plans[0]?.versions.map((v) => [v.version, v.priceMinor])).toEqual([
+      [1, 49900],
+      [2, 59900],
+    ]);
+    // No leakage between products: beta only sees its own plan and version.
+    expect(beta?.plans.map((p) => p.code)).toEqual(['pro']);
+    expect(beta?.plans[0]?.versions.map((v) => v.priceMinor)).toEqual([99900]);
+    expect(gamma?.plans).toEqual([]);
+  });
+
+  it('rejects out-of-range paging and any other query parameter', async () => {
+    await seedThreeProducts();
+    for (const query of [
+      '?limit=0',
+      '?limit=101',
+      '?limit=abc',
+      '?offset=-1',
+      '?offset=100001',
+      '?sort=name',
+      '?limit=1%3BDROP%20TABLE%20products',
+    ]) {
+      const res = await admin('GET', query);
+      expect(res.statusCode, query).toBe(400);
+    }
+    expect((await db.select().from(schema.products)).length).toBe(3);
+  });
+});
+
 describe('audit trail', () => {
   it('records every change with the platform user as actor and no secrets', async () => {
     const productId = await createProduct();

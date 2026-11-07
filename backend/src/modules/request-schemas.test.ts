@@ -96,11 +96,8 @@ const BOUNDED_BY_DESIGN = new Set([
 ]);
 
 // Known gaps, on purpose in a separate list: the test fails when one is fixed, so it gets removed.
-const KNOWN_UNBOUNDED = new Set([
-  // Returns every plan version of every plan (versions are immutable and only grow) and loads
-  // product by product (N+1). Platform staff only. Needs paging or a version cap (TASKS.md).
-  'get /admin/catalog',
-]);
+// Empty now: `GET /admin/catalog` was the last one and is paged (limit/offset, no N+1).
+const KNOWN_UNBOUNDED = new Set<string>();
 
 const MAX_PAGE = 100;
 const MAX_OFFSET = 100_000;

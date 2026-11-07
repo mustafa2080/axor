@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { badRequest, conflict, notFound } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../client.js';
@@ -162,6 +162,51 @@ async function loadProduct(exec: Exec, productId: string): Promise<AdminProduct 
   };
 }
 
+/**
+ * Builds a page of products with a FIXED number of queries (activities, plans, versions), however
+ * many products are on the page. `productRows` arrive already ordered and keep that order.
+ */
+async function assembleProducts(
+  exec: Exec,
+  productRows: Array<typeof products.$inferSelect>,
+): Promise<AdminProduct[]> {
+  if (productRows.length === 0) return [];
+  const productIds = productRows.map((row) => row.id);
+  const activityRows = await exec
+    .select()
+    .from(businessActivities)
+    .where(inArray(businessActivities.productId, productIds))
+    .orderBy(asc(businessActivities.name));
+  const planRows = await exec
+    .select()
+    .from(plans)
+    .where(inArray(plans.productId, productIds))
+    .orderBy(asc(plans.code));
+  const versionRows =
+    planRows.length === 0
+      ? []
+      : await exec
+          .select()
+          .from(planVersions)
+          .where(
+            inArray(
+              planVersions.planId,
+              planRows.map((plan) => plan.id),
+            ),
+          )
+          .orderBy(asc(planVersions.version));
+  return productRows.map((product) => ({
+    id: product.id,
+    code: product.code,
+    name: product.name,
+    status: product.status,
+    activities: activityRows.filter((a) => a.productId === product.id).map(toActivity),
+    plans: planRows
+      .filter((plan) => plan.productId === product.id)
+      .map((plan) => toPlan(plan, versionRows)),
+  }));
+}
+
 async function loadPlan(exec: Exec, planId: string): Promise<AdminPlan | null> {
   const [row] = await exec.select().from(plans).where(eq(plans.id, planId)).limit(1);
   if (row === undefined) return null;
@@ -182,15 +227,19 @@ async function loadPlan(exec: Exec, planId: string): Promise<AdminPlan | null> {
  */
 export function createCatalogAdminRepository(db: Database['db']) {
   return {
-    /** Everything, including disabled products/activities and archived plans, with all versions. */
-    async listCatalog(): Promise<AdminProduct[]> {
-      const rows = await db.select({ id: products.id }).from(products).orderBy(asc(products.name));
-      const result: AdminProduct[] = [];
-      for (const { id } of rows) {
-        const product = await loadProduct(db, id);
-        if (product !== null) result.push(product);
-      }
-      return result;
+    /**
+     * One page of products, including disabled products/activities and archived plans, each with
+     * ALL its plan versions (the version history is the point of immutability). Ordered by name,
+     * then id, so paging is stable. Fixed query count per page (no N+1).
+     */
+    async listCatalog(page: { limit: number; offset: number }): Promise<AdminProduct[]> {
+      const rows = await db
+        .select()
+        .from(products)
+        .orderBy(asc(products.name), asc(products.id))
+        .limit(page.limit)
+        .offset(page.offset);
+      return assembleProducts(db, rows);
     },
 
     async createProduct(

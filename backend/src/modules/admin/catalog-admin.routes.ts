@@ -77,6 +77,12 @@ const planPatch = z
   .strictObject({ status: z.enum(planStatuses).optional(), currentVersionId: uuid.optional() })
   .refine((value) => Object.keys(value).length > 0, 'Nothing to change');
 
+// Same paging contract as the other admin lists: capped limit and offset, no client-chosen sort.
+const listQuery = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
+});
+
 /** Drops keys whose value is undefined (Zod's optional fields) so only real changes are written. */
 function compact<T extends Record<string, unknown>>(value: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
   return Object.fromEntries(
@@ -114,7 +120,9 @@ export function catalogAdminRoutes(auth: AuthService, admin: CatalogAdminReposit
 
     app.get('/admin/catalog', async (request) => {
       contextOf(request);
-      return ok(await admin.listCatalog());
+      const query = parseInput(listQuery, request.query);
+      const items = await admin.listCatalog({ limit: query.limit, offset: query.offset });
+      return ok(items, { limit: query.limit, offset: query.offset });
     });
 
     app.post('/admin/catalog/products', async (request, reply) => {

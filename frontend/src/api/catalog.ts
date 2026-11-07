@@ -56,7 +56,26 @@ export interface Product {
   plans: Plan[]
 }
 
-export const listCatalog = () => api<Product[]>('GET', '/admin/catalog')
+/** حجم الصفحة الأقصى اللي الخادم بيقبله، وحد الإزاحة الأقصى (backend: catalog-admin.routes.ts). */
+const CATALOG_PAGE_SIZE = 100
+const CATALOG_MAX_OFFSET = 100_000
+
+/**
+ * الخادم بيرجّع الكتالوج صفحات (الحد الأقصى 100). اللوحة بتعرضه كله، فبنقرا الصفحات ورا بعض
+ * لحد ما صفحة ترجع أقل من الحجم الكامل، بدل ما نتقص عند أول صفحة من غير ما حد يلاحظ.
+ */
+export async function listCatalog(): Promise<Product[]> {
+  const products: Product[] = []
+  for (let offset = 0; offset <= CATALOG_MAX_OFFSET; offset += CATALOG_PAGE_SIZE) {
+    const page = await api<Product[]>(
+      'GET',
+      `/admin/catalog?limit=${CATALOG_PAGE_SIZE}&offset=${offset}`,
+    )
+    products.push(...page)
+    if (page.length < CATALOG_PAGE_SIZE) break
+  }
+  return products
+}
 
 export const createProduct = (input: { code: string; name: string; status: ProductStatus }) =>
   api<Product>('POST', '/admin/catalog/products', input)
