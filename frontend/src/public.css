@@ -315,3 +315,94 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ---------- مشهد 3D في الرئيسية (ADR-0024) ---------- */
+/*
+ * ثلاث ألواح فوق بعض بعمق حقيقي (perspective وpreserve-3d) على وضع isometric. زخرفة بس (aria-hidden)،
+ * فمفيش محتوى جواها. من غير مكتبة ولا WebGL ولا inline style. الدوران البطيء جوه
+ * prefers-reduced-motion: no-preference، وغير كده المشهد ساكن بنفس الوضعية.
+ */
+.scene {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: clamp(190px, 34vw, 280px);
+  perspective: 1100px;
+  pointer-events: none;
+}
+.scene-stage {
+  --size: clamp(120px, 26vw, 200px);
+  --gap: clamp(26px, 5.5vw, 44px);
+  position: relative;
+  inline-size: var(--size);
+  block-size: var(--size);
+  transform-style: preserve-3d;
+  transform: rotateX(62deg) rotateZ(-35deg);
+}
+.scene-slab {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(145deg, var(--slab-top), var(--slab-bottom));
+  box-shadow: 0 0 0 1px var(--ring);
+  transform-style: preserve-3d;
+}
+/* السُمك: وش خلفي أغمق ملصوق تحت اللوح بمسافة صغيرة. */
+.scene-slab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--border-strong);
+  transform: translateZ(-9px);
+}
+.scene-slab-1 {
+  transform: translateZ(0);
+}
+.scene-slab-2 {
+  transform: translateZ(var(--gap));
+}
+.scene-slab-3 {
+  transform: translateZ(calc(var(--gap) * 2));
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  border-color: var(--accent-strong);
+}
+.scene-slab-3::before {
+  background: var(--accent-strong);
+}
+/* ضل على "الأرض" تحت المجموعة عشان العمق يبان. */
+.scene-stage::after {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 28px;
+  background: rgb(10 14 22 / 0.28);
+  filter: blur(18px);
+  transform: translateZ(-26px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scene-stage {
+    animation: scene-turn 48s linear infinite;
+  }
+  .scene-slab-2,
+  .scene-slab-3 {
+    animation: scene-float 6s ease-in-out infinite alternate;
+  }
+  .scene-slab-3 {
+    animation-delay: -3s;
+  }
+}
+@keyframes scene-turn {
+  to {
+    transform: rotateX(62deg) rotateZ(325deg);
+  }
+}
+@keyframes scene-float {
+  from {
+    translate: 0 0 0;
+  }
+  to {
+    translate: 0 0 14px;
+  }
+}

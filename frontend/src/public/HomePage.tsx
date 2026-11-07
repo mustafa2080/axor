@@ -20,6 +20,13 @@ export function HomePage() {
   return (
     <main className="home">
       <section className="home-hero" aria-labelledby="home-title">
+        <div className="scene" aria-hidden="true">
+          <div className="scene-stage">
+            <div className="scene-slab scene-slab-1" />
+            <div className="scene-slab scene-slab-2" />
+            <div className="scene-slab scene-slab-3" />
+          </div>
+        </div>
         <h1 id="home-title">منصة واحدة لإدارة أنظمة شركتك</h1>
         <p className="home-lead">
           سجّل شركتك مرة واحدة، واختار الأنظمة والباقات اللي تناسبك، وابدأ بتجربة مجانية.
