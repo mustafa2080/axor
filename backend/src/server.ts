@@ -12,7 +12,11 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { startExpiryJob } from './modules/subscriptions/expiry-job.js';
 
 const env = loadEnv();
-const database = createDatabase(env.DATABASE_URL);
+const database = createDatabase(env.DATABASE_URL, {
+  poolSize: env.DB_POOL_SIZE,
+  queueLimit: env.DB_POOL_QUEUE_LIMIT,
+  statementTimeoutMs: env.DB_STATEMENT_TIMEOUT_MS,
+});
 const accessTokens = createAccessTokenService({
   secret: env.JWT_ACCESS_SECRET,
   previousSecret: env.JWT_ACCESS_SECRET_PREVIOUS,

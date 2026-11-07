@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import type { FastifyError, FastifyRequest } from 'fastify';
 import type { Env } from './config/env.js';
 import { AppError } from './common/errors.js';
+import { isDatabaseBusy } from './database/errors.js';
 import { SECRET_PATHS, maskIp, serializeError } from './common/log-safe.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthDeps } from './modules/health/health.routes.js';
@@ -179,6 +180,17 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     if (isClientError) {
       void reply.code(error.statusCode ?? 400).send({
         error: { code: 'BAD_REQUEST', message: error.message },
+      });
+      return;
+    }
+
+    // The database is saturated or a statement ran too long (ADR-0019): nothing was half-applied,
+    // so tell the client to retry shortly instead of reporting an opaque 500.
+    if (isDatabaseBusy(error)) {
+      request.log.warn({ err: error }, 'database busy');
+      void reply.header('retry-after', '5');
+      void reply.code(503).send({
+        error: { code: 'SERVICE_BUSY', message: 'The service is busy, please try again shortly' },
       });
       return;
     }

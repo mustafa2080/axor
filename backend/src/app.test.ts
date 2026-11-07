@@ -55,6 +55,32 @@ describe('app', () => {
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
     });
   });
+
+  it('a saturated or slow database answers 503 with Retry-After and no internals (ADR-0019)', async () => {
+    const busyErrors = [
+      // What Drizzle throws: the driver error wrapped as `cause`.
+      new Error('Failed query: select secret_table', {
+        cause: Object.assign(new Error('Query execution was interrupted (max_statement_time exceeded) secret'), {
+          errno: 1969,
+          code: 'ER_STATEMENT_TIMEOUT',
+        }),
+      }),
+      new Error('Queue limit reached.'),
+    ];
+    for (const failure of busyErrors) {
+      const app = buildApp(env, healthyDeps);
+      app.get('/slow', async () => {
+        throw failure;
+      });
+      const res = await app.inject({ method: 'GET', url: '/slow' });
+      expect(res.statusCode).toBe(503);
+      expect(res.headers['retry-after']).toBe('5');
+      expect(res.body).not.toContain('secret');
+      expect(res.json()).toEqual({
+        error: { code: 'SERVICE_BUSY', message: 'The service is busy, please try again shortly' },
+      });
+    }
+  });
 });
 
 describe('browser security: Helmet and CORS', () => {
@@ -182,6 +208,27 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv({ DATABASE_URL: 'postgres://u:p@127.0.0.1/db', JWT_ACCESS_SECRET: testSecret }),
     ).toThrow();
+  });
+
+  it('sets bounded database limits by default and rejects values outside the safe range (ADR-0019)', () => {
+    const parsed = loadEnv({ DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret });
+    expect(parsed.DB_POOL_SIZE).toBe(10);
+    expect(parsed.DB_POOL_QUEUE_LIMIT).toBe(100);
+    expect(parsed.DB_STATEMENT_TIMEOUT_MS).toBe(15_000);
+
+    const base = { DATABASE_URL: testUrl, JWT_ACCESS_SECRET: testSecret };
+    expect(loadEnv({ ...base, DB_STATEMENT_TIMEOUT_MS: '0' }).DB_STATEMENT_TIMEOUT_MS).toBe(0);
+    for (const bad of [
+      { DB_POOL_SIZE: '0' },
+      { DB_POOL_SIZE: '101' },
+      { DB_POOL_SIZE: 'abc' },
+      { DB_POOL_QUEUE_LIMIT: '0' },
+      { DB_POOL_QUEUE_LIMIT: '10001' },
+      { DB_STATEMENT_TIMEOUT_MS: '-1' },
+      { DB_STATEMENT_TIMEOUT_MS: '300001' },
+    ]) {
+      expect(() => loadEnv({ ...base, ...bad })).toThrow();
+    }
   });
 });
 

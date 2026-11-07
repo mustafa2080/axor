@@ -24,6 +24,8 @@
 | `TRUST_PROXY=true` | **فقط** لو فيه reverse proxy بتتحكم فيه. غير كده الـ rate limit هيشوف IP الـ proxy |
 | `LOG_LEVEL` | في الإنتاج: `fatal` أو `error` أو `warn` أو `info` أو `silent` (مش `debug` ولا `trace`) |
 | `ACCESS_TOKEN_TTL_SECONDS`، `REFRESH_TOKEN_TTL_DAYS` | ليهم قيم افتراضية |
+| `DB_POOL_SIZE` (10) / `DB_POOL_QUEUE_LIMIT` (100) | حدود اتصالات قاعدة البيانات **لكل instance** (ADR-0019). مجموع `DB_POOL_SIZE` على كل الـ instances لازم يفضل أقل من `max_connections` في MariaDB بهامش للصيانة والـ migrations. لو الـ queue امتلت الطلبات الزيادة بترجع 503 فوراً |
+| `DB_STATEMENT_TIMEOUT_MS` (15000) | أطول وقت لاستعلام واحد قبل ما MariaDB تقتله (`max_statement_time`). `0` = من غير حد. الـ migrations والسكربتات مش متأثرة. الاستعلام المقتول بيرجّع 503 `SERVICE_BUSY` مع `Retry-After: 5` |
 
 الأسرار بتتحط في مخزن الأسرار بتاع المنصة (**ينتظر قرار**)، مش في ملفات YAML ولا في المستودع.
 

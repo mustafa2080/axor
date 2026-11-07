@@ -271,3 +271,60 @@ describe('query plans: sweeps and catalog reads', () => {
     });
   });
 });
+
+// N+1 guard (TASKS.md section 10): a list must cost the same number of statements for a page of 1
+// row as for a page of many. A per-row query inside a loop makes the count grow with the page.
+describe('statement count: lists do not issue one query per row', () => {
+  const page = (limit: number) => ({ limit, offset: 0 });
+
+  async function statementCount(action: () => Promise<unknown>): Promise<number> {
+    captured.length = 0;
+    await action();
+    return captured.length;
+  }
+
+  async function expectConstant(name: string, run: (limit: number) => Promise<unknown>): Promise<void> {
+    const small = await statementCount(() => run(1));
+    const large = await statementCount(() => run(50));
+    expect(small, `${name} sent no statements`).toBeGreaterThan(0);
+    expect(large, `${name}: 1 row cost ${small} statements, 50 rows cost ${large} (N+1?)`).toBe(small);
+  }
+
+  it('admin lists: audit trail, subscriptions, companies', async () => {
+    const audit = createAuditAdminRepository(db);
+    const subscriptions = createSubscriptionsRepository(db);
+    const tenants = createTenantsAdminRepository(db);
+    await expectConstant('audit trail', (limit) => audit.list(page(limit)));
+    await expectConstant('subscriptions', (limit) => subscriptions.adminList(page(limit)));
+    await expectConstant('companies', (limit) => tenants.list(page(limit)));
+  });
+
+  it('company-scoped lists: members, users, audit trail', async () => {
+    const scope = requireTenantScope({
+      kind: 'tenant',
+      userId: uuidv7(),
+      tenantId: bigTenantId,
+      role: 'owner',
+    });
+    const members = createMembersRepository(db);
+    const users = new TenantUsersRepository(db, scope);
+    const trail = new TenantAuditLogsRepository(db, scope);
+    await expectConstant('members', (limit) => members.list(scope, page(limit)));
+    await expectConstant('company users', (limit) => users.list({ limit }));
+    await expectConstant('company audit trail', (limit) => trail.list(limit));
+  });
+
+  it('the admin catalog, with several products that each have plans', async () => {
+    const extra = Array.from({ length: 30 }, (_, i) => ({
+      id: uuidv7(),
+      code: `n1-product-${i}`,
+      name: `N1 product ${i}`,
+    }));
+    await db.insert(schema.products).values(extra);
+    await db
+      .insert(schema.plans)
+      .values(extra.map((product) => ({ id: uuidv7(), productId: product.id, code: 'basic' })));
+    const catalog = createCatalogAdminRepository(db);
+    await expectConstant('admin catalog', (limit) => catalog.listCatalog(page(limit)));
+  });
+});

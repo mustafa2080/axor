@@ -13,6 +13,9 @@ const publicColumns = {
   createdAt: users.createdAt,
 } as const;
 
+/** Same ceiling as the admin and member lists (ADR-0006 §10). */
+const MAX_PAGE_SIZE = 100;
+
 /**
  * Users of ONE company. Every statement is constrained by `scope.tenantId`, so a user id from
  * another company simply does not exist as far as this repository is concerned.
@@ -23,12 +26,21 @@ export class TenantUsersRepository {
     private readonly scope: TenantScope,
   ) {}
 
-  list() {
+  /**
+   * One page of this company's users, oldest first. Always bounded (ADR-0019 §4): a company with
+   * thousands of users never loads them all at once, and a caller cannot ask for more than the
+   * maximum page.
+   */
+  list(page: { limit?: number; offset?: number } = {}) {
+    const limit = Math.min(Math.max(Math.trunc(page.limit ?? MAX_PAGE_SIZE), 1), MAX_PAGE_SIZE);
+    const offset = Math.max(Math.trunc(page.offset ?? 0), 0);
     return this.db
       .select(publicColumns)
       .from(users)
       .where(eq(users.tenantId, this.scope.tenantId))
-      .orderBy(asc(users.createdAt), asc(users.id));
+      .orderBy(asc(users.createdAt), asc(users.id))
+      .limit(limit)
+      .offset(offset);
   }
 
   async findById(userId: string) {

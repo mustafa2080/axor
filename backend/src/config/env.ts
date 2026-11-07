@@ -27,6 +27,12 @@ const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   DATABASE_URL: z.url({ protocol: /^mysql$/ }),
+  /** Database limits (ADR-0019). Size the pool below MariaDB's max_connections divided by instances. */
+  DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+  /** Requests allowed to wait for a free connection; beyond it they fail fast with 503. */
+  DB_POOL_QUEUE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
+  /** Longest a single SQL statement may run, in ms. 0 turns the limit off. */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).max(300_000).default(15_000),
   /** HMAC secret for access tokens (ADR-0004). Never commit a real value. */
   JWT_ACCESS_SECRET: z
     .string()
