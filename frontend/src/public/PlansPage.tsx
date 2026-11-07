@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react'
-import { loadPublicCatalog } from '../api/company.ts'
-import { BrandMark, ErrorNote, Loading } from '../components/ui.tsx'
-import { ThemeToggle } from '../components/ThemeToggle.tsx'
+import { ErrorNote, Loading } from '../components/ui.tsx'
 import { OfferCards } from '../company/OfferCards.tsx'
-import { buildOffers } from '../lib/company-offers.ts'
-import type { Offers } from '../lib/company-offers.ts'
-import { errorMessage } from '../lib/labels.ts'
 import { registerHash } from '../lib/plan-choice.ts'
-
-type State =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'ready'; data: Offers }
-
-async function fetchOffers(): Promise<State> {
-  try {
-    const catalog = await loadPublicCatalog()
-    return { status: 'ready', data: buildOffers(catalog.products, catalog.plansByProduct, new Set()) }
-  } catch (error) {
-    return { status: 'error', message: errorMessage(error) }
-  }
-}
+import { fetchOffers } from './offers-state.ts'
+import type { OffersState } from './offers-state.ts'
 
 /**
  * الباقات المتاحة للزائر (من غير دخول): يختار نظام وباقة، وبعدها يكمّل للتسجيل. الصفحة بتعرض الكتالوج
  * العام بس؛ الاختيار بيروح في الرابط كأكواد، والخادم هو اللي بيحدد المدة والحالة عند بدء التجربة.
  */
 export function PlansPage() {
-  const [state, setState] = useState<State>({ status: 'loading' })
+  const [state, setState] = useState<OffersState>({ status: 'loading' })
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
@@ -41,21 +24,6 @@ export function PlansPage() {
   }, [version])
 
   return (
-    <>
-      <header className="topbar">
-        <BrandMark />
-        <nav aria-label="التنقل">
-          <a href="#/plans" aria-current="page">
-            الباقات
-          </a>
-        </nav>
-        <div className="user">
-          <ThemeToggle />
-          <a className="btn btn-small" href="#/login">
-            دخول
-          </a>
-        </div>
-      </header>
       <main className="content">
         <div className="page-head">
           <h1>اختار الباقة وابدأ تجربة مجانية</h1>
@@ -89,6 +57,5 @@ export function PlansPage() {
           />
         ) : null}
       </main>
-    </>
   )
 }

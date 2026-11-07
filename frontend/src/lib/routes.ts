@@ -17,6 +17,20 @@ export function isKnownPublicHash(hash: string): boolean {
   return HOME.has(path) || PUBLIC.has(path)
 }
 
+export type PublicRoute = 'home' | 'login' | 'register' | 'plans'
+
+/**
+ * أي صفحة عامة يعرضها الزائر (قبل الدخول) لرابط معروف: الرئيسية للرابط الفاضي و`#` و`#/`، وغير كده
+ * بالمسار من غير الـ query. الروابط الغير معروفة بتتعرض 404 قبل ما نوصل هنا (`isKnownPublicHash`).
+ */
+export function publicRouteOf(hash: string): PublicRoute {
+  const path = hashPath(hash)
+  if (path === '#/login') return 'login'
+  if (path === '#/register') return 'register'
+  if (path === '#/plans') return 'plans'
+  return 'home'
+}
+
 export function isKnownCompanyHash(hash: string): boolean {
   const path = hashPath(hash)
   return HOME.has(path) || PUBLIC.has(path) || COMPANY.has(path)

@@ -1,7 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { parsePlanChoice } from './plan-choice.ts'
 import type { PlanChoice } from './plan-choice.ts'
-import { hashPath } from './routes.ts'
+import { hashPath, publicRouteOf } from './routes.ts'
+import type { PublicRoute } from './routes.ts'
 
 export type Route = 'products' | 'plans' | 'subscriptions' | 'tenants' | 'audit'
 
@@ -58,18 +59,13 @@ export function useTrialFailed(): boolean {
   return isTrialFailedHash(hash)
 }
 
-export type PublicRoute = 'login' | 'register' | 'plans'
-
 /**
- * قبل الدخول: #/plans لاختيار الباقة، و#/register (ممكن معاه ?product=&plan=) لتسجيل شركة جديدة،
- * وأي حاجة تانية شاشة الدخول.
+ * قبل الدخول: الصفحة الرئيسية (#/)، و#/plans لاختيار الباقة، و#/register (ممكن معاه ?product=&plan=)
+ * لتسجيل شركة جديدة، و#/login للدخول. المنطق في `publicRouteOf` عشان يتختبر من غير React.
  */
 export function usePublicRoute(): PublicRoute {
   const hash = useSyncExternalStore(subscribe, currentHash, serverHash)
-  const path = hash.split('?')[0]
-  if (path === '#/register') return 'register'
-  if (path === '#/plans') return 'plans'
-  return 'login'
+  return publicRouteOf(hash)
 }
 
 /** الباقة اللي الزائر اختارها قبل التسجيل (من الرابط)، أو null. */

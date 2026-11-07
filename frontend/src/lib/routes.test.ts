@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { hashPath, isKnownCompanyHash, isKnownPlatformHash, isKnownPublicHash } from './routes.ts'
+import { hashPath, isKnownCompanyHash, isKnownPlatformHash, isKnownPublicHash, publicRouteOf } from './routes.ts'
+
+describe('publicRouteOf', () => {
+  it('shows the home page for the empty hash, # and #/', () => {
+    for (const hash of ['', '#', '#/']) expect(publicRouteOf(hash), hash).toBe('home')
+  })
+
+  it('maps each public page, ignoring the query string', () => {
+    expect(publicRouteOf('#/login')).toBe('login')
+    expect(publicRouteOf('#/plans')).toBe('plans')
+    expect(publicRouteOf('#/register')).toBe('register')
+    expect(publicRouteOf('#/register?product=a&plan=b')).toBe('register')
+  })
+})
 
 describe('hashPath', () => {
   it('drops the query string', () => {

@@ -7,10 +7,11 @@ import { CompanyApp } from './company/CompanyApp.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { NotFoundPage } from './components/ErrorPage.tsx'
 import { OfflineBanner } from './components/OfflineBanner.tsx'
-import { ThemeToggle } from './components/ThemeToggle.tsx'
+import { PublicLayout } from './components/PublicLayout.tsx'
 import { Spinner } from './components/ui.tsx'
 import { isKnownPublicHash } from './lib/routes.ts'
 import { useHash, usePublicRoute } from './lib/useRoute.ts'
+import { HomePage } from './public/HomePage.tsx'
 import { PlansPage } from './public/PlansPage.tsx'
 
 function Gate() {
@@ -26,24 +27,30 @@ function Gate() {
     )
   }
   if (state.status === 'anonymous') {
+    // كل صفحة عامة (حتى الـ 404) جوه نفس الـ navbar والـ footer (ADR-0023).
     if (!isKnownPublicHash(hash)) {
       return (
-        <>
-          <ThemeToggle className="theme-fab" />
+        <PublicLayout>
           <main className="login">
             <div className="login-card">
               <NotFoundPage />
             </div>
           </main>
-        </>
+        </PublicLayout>
       )
     }
-    if (publicRoute === 'plans') return <PlansPage />
     return (
-      <>
-        <ThemeToggle className="theme-fab" />
-        {publicRoute === 'register' ? <RegisterPage /> : <LoginPage />}
-      </>
+      <PublicLayout>
+        {publicRoute === 'plans' ? (
+          <PlansPage />
+        ) : publicRoute === 'register' ? (
+          <RegisterPage />
+        ) : publicRoute === 'login' ? (
+          <LoginPage />
+        ) : (
+          <HomePage />
+        )}
+      </PublicLayout>
     )
   }
   // مستخدم المنصة = لوحة الإدارة، ومستخدم الشركة = لوحة الشركة. الخادم بيفرض الصلاحيات في الحالتين.

@@ -4,6 +4,7 @@ import '@fontsource-variable/cairo'
 import './index.css'
 import './depth.css'
 import './shell.css'
+import './public.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

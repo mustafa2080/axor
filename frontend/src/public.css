@@ -1,0 +1,317 @@
+/*
+ * الصفحات العامة: navbar وfooter مشتركين والصفحة الرئيسية (ADR-0023).
+ * CSS فقط ومن غير inline style (CSP). الحركة (rotateX بس، ADR-0021) شغّالة فقط مع
+ * prefers-reduced-motion: no-preference. الاتجاه RTL: كله logical properties.
+ */
+
+.public-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.public-main {
+  flex: 1;
+  min-width: 0;
+}
+/* شاشتي الدخول والتسجيل جوه الغلاف: من غير ارتفاع الشاشة كله ولا خلفية تانية. */
+.public-main > .login {
+  min-height: 0;
+  padding-block: clamp(2rem, 6vw, 4rem);
+}
+
+/* ---------- navbar ---------- */
+.pub-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border);
+}
+.pub-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 1080px;
+  min-height: 60px;
+  margin-inline: auto;
+  padding: 0.5rem clamp(1rem, 3vw, 2rem);
+}
+.pub-brand {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+.pub-links {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-inline-start: 1rem;
+}
+.pub-links > a:not(.btn) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition-property: background-color, color;
+  transition-duration: var(--duration-quick);
+}
+.pub-links > a:not(.btn):hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.pub-links > a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.pub-links-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+.pub-menu-btn {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .pub-nav-inner {
+    position: relative;
+  }
+  .pub-nav .theme-toggle {
+    margin-inline-start: auto;
+  }
+  .pub-menu-btn {
+    display: inline-flex;
+  }
+  /* القائمة على الموبايل: لوح تحت الشريط بيتفتح بـ rotateX (ADR-0021). */
+  .pub-links {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0.75rem clamp(1rem, 3vw, 2rem) 1rem;
+    background: var(--surface);
+    box-shadow:
+      0 1px 0 var(--border),
+      0 18px 32px -16px rgb(16 24 40 / 0.3);
+    transform-origin: top center;
+  }
+  .pub-nav[data-open='true'] .pub-links {
+    display: flex;
+  }
+  .pub-links > a:not(.btn) {
+    min-height: 44px;
+  }
+  .pub-links-actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin: 0.5rem 0 0;
+  }
+  .pub-links-actions .btn {
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+  .pub-nav[data-open='true'] .pub-links {
+    animation: pub-fold var(--duration-fast) var(--ease-out) both;
+  }
+}
+@keyframes pub-fold {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateX(-12deg);
+  }
+}
+
+/* ---------- footer ---------- */
+.pub-footer {
+  margin-block-start: 3rem;
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--border);
+}
+.pub-footer-inner {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 2rem;
+  max-width: 1080px;
+  margin-inline: auto;
+  padding: 2.25rem clamp(1rem, 3vw, 2rem) 1.5rem;
+}
+.pub-footer-brand p {
+  max-inline-size: 36ch;
+  margin-block: 0.75rem 0;
+  font-size: 0.92rem;
+}
+.pub-footer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+.pub-footer-col h2 {
+  margin: 0 0 0.35rem;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.pub-footer-col a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+.pub-footer-col a:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+.pub-footer-legal {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1rem clamp(1rem, 3vw, 2rem) 1.5rem;
+  border-block-start: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+@media (max-width: 640px) {
+  .pub-footer-inner {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pub-footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- الصفحة الرئيسية ---------- */
+.home {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 3vw, 2rem) 1rem;
+}
+.home-hero {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  padding-block: clamp(1rem, 4vw, 2.5rem) clamp(2rem, 5vw, 3.5rem);
+  text-align: center;
+}
+.home-hero h1 {
+  max-inline-size: 22ch;
+  margin: 0;
+  font-size: clamp(1.9rem, 5.5vw, 3.1rem);
+  line-height: 1.25;
+}
+.home-lead {
+  max-inline-size: 52ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 2.4vw, 1.2rem);
+  line-height: 1.8;
+}
+.home-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-block-start: 0.5rem;
+}
+.home-cta .btn,
+.home-final .btn {
+  min-height: 46px;
+  padding-inline: 1.5rem;
+}
+.home-section {
+  padding-block: clamp(1.5rem, 4vw, 2.5rem);
+}
+.home-section > h2 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+}
+.home-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-steps .card {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+}
+.home-steps h3,
+.home-points h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.home-steps p,
+.home-points p {
+  margin: 0;
+}
+.home-step-no {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  margin-block-end: 0.35rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.home-points {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+.home-point-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.home-final {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  margin-block: clamp(1.5rem, 4vw, 2.5rem) 0;
+  padding: clamp(1.75rem, 5vw, 3rem) 1rem;
+  border-radius: var(--radius-xl);
+  background: var(--accent-soft);
+  text-align: center;
+}
+.home-final h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+}
+@media (min-width: 761px) {
+  .home-points {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
