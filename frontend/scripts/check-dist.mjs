@@ -22,6 +22,10 @@ if (meta === null) {
   }
 }
 
+if (!/<meta\s+name="referrer"\s+content="no-referrer"\s*\/?>/i.test(html)) {
+  problems.push('no <meta name="referrer" content="no-referrer"> tag')
+}
+
 // Anything inline would be blocked by the policy and the page would load blank.
 for (const script of html.matchAll(/<script\b([^>]*)>/gi)) {
   if (!/\bsrc="\/[^/"]/.test(script[1])) {

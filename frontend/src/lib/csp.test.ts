@@ -77,4 +77,9 @@ describe('source stays compatible with the policy and free of raw HTML', () => {
     }
     expect(html).not.toMatch(/<style\b|\sstyle\s*=|\son[a-z]+\s*=/i)
   })
+
+  it('tells the browser never to send a Referer from the page', () => {
+    const html = readFileSync(path.join(appDir, 'index.html'), 'utf8')
+    expect(html).toMatch(/<meta\s+name="referrer"\s+content="no-referrer"\s*\/?>/i)
+  })
 })
