@@ -342,6 +342,15 @@ code {
 }
 .table-wrap {
   overflow-x: auto;
+  /* Scroll hint, CSS only: a soft shadow shows on an edge only while there is more
+     table to scroll toward. The `local` layers (surface-coloured covers) move with the
+     content and hide the fixed `scroll` shadows once that edge is reached. Symmetric,
+     so it works the same in RTL. No JavaScript, no inline style (ADR-0014). */
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 0.22), transparent) left center / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.22), transparent) right center / 0.75rem 100% no-repeat scroll;
 }
 .table {
   width: 100%;
