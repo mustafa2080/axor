@@ -21,5 +21,8 @@ export const auditLogs = mysqlTable(
   (t) => [
     index('audit_logs_tenant_created_idx').on(t.tenantId, t.createdAt),
     index('audit_logs_actor_created_idx').on(t.actorUserId, t.createdAt),
+    // Platform-wide trail (newest first), optionally one action (ADR-0018).
+    index('audit_logs_created_idx').on(t.createdAt, t.id),
+    index('audit_logs_action_created_idx').on(t.action, t.createdAt, t.id),
   ],
 );

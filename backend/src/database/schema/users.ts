@@ -30,7 +30,10 @@ export const users = mysqlTable(
   },
   (t) => [
     uniqueIndex('users_email_uq').on(t.email),
-    index('users_tenant_id_idx').on(t.tenantId),
+    // Company member list (oldest first) and the owner/seat checks that lock or count one company's
+    // users (ADR-0018). Both start with tenant_id, so they also serve the tenant_id foreign key.
+    index('users_tenant_created_idx').on(t.tenantId, t.createdAt, t.id),
+    index('users_tenant_role_status_idx').on(t.tenantId, t.tenantRole, t.status),
     // Either a company user (tenant + tenant role, no platform role) or platform staff (the reverse).
     check(
       'users_scope_chk',

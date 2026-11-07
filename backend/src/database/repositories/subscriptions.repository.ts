@@ -534,12 +534,28 @@ export function createSubscriptionsRepository(
 
     async adminList(query: AdminListQuery) {
       const now = clock();
-      const rows = await adminSelect(db)
+      // Page the ids on the (status, created_at, id) index first. Joined in one statement, the
+      // optimizer starts from the tiny products/plans tables and sorts every subscription in a
+      // temporary table before applying LIMIT (ADR-0018). The ids then load their details.
+      const page = await db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
         .where(query.status === undefined ? undefined : eq(subscriptions.status, query.status))
         .orderBy(desc(subscriptions.createdAt), desc(subscriptions.id))
         .limit(query.limit)
         .offset(query.offset);
-      return rows.map((row) => toAdminView(row, now));
+      if (page.length === 0) return [];
+      const rows = await adminSelect(db).where(
+        inArray(
+          subscriptions.id,
+          page.map((row) => row.id),
+        ),
+      );
+      const byId = new Map(rows.map((row) => [row.sub.id, row]));
+      return page.flatMap(({ id }) => {
+        const row = byId.get(id);
+        return row === undefined ? [] : [toAdminView(row, now)];
+      });
     },
 
     /** Manual activation until payments exist: sets the end of the paid period (also renews). */

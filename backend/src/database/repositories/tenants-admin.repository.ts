@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { conflict, notFound } from '../../common/errors.js';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../client.js';
@@ -81,7 +81,18 @@ export function createTenantsAdminRepository(db: Database['db']) {
 
   return {
     async list(query: { status?: TenantStatus; limit: number; offset: number }) {
-      return db
+      // Page the company ids on the (status, created_at, id) index first. Grouping the join with
+      // users in the same statement makes MariaDB sort every company in a temporary table before
+      // LIMIT (ADR-0018); counting users only for the page's companies avoids that.
+      const page = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(query.status === undefined ? undefined : eq(tenants.status, query.status))
+        .orderBy(desc(tenants.createdAt), desc(tenants.id))
+        .limit(query.limit)
+        .offset(query.offset);
+      if (page.length === 0) return [];
+      const rows = await db
         .select({
           id: tenants.id,
           name: tenants.name,
@@ -92,11 +103,18 @@ export function createTenantsAdminRepository(db: Database['db']) {
         })
         .from(tenants)
         .leftJoin(users, eq(users.tenantId, tenants.id))
-        .where(query.status === undefined ? undefined : eq(tenants.status, query.status))
-        .groupBy(...groupColumns)
-        .orderBy(desc(tenants.createdAt), desc(tenants.id))
-        .limit(query.limit)
-        .offset(query.offset);
+        .where(
+          inArray(
+            tenants.id,
+            page.map((row) => row.id),
+          ),
+        )
+        .groupBy(...groupColumns);
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return page.flatMap(({ id }) => {
+        const row = byId.get(id);
+        return row === undefined ? [] : [row];
+      });
     },
 
     async suspend(ctx: AdminContext, id: string, reason: string): Promise<AdminTenantView> {

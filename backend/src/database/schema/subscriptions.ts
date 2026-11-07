@@ -38,5 +38,8 @@ export const subscriptions = mysqlTable(
   (t) => [
     uniqueIndex('subscriptions_tenant_product_uq').on(t.tenantId, t.productId),
     index('subscriptions_status_period_idx').on(t.status, t.currentPeriodEnd),
+    // Admin subscription list: newest first, optionally one status (ADR-0018).
+    index('subscriptions_created_idx').on(t.createdAt, t.id),
+    index('subscriptions_status_created_idx').on(t.status, t.createdAt, t.id),
   ],
 );

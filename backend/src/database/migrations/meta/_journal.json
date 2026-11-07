@@ -29,6 +29,13 @@
       "when": 1793462681883,
       "tag": "0003_users_full_name",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794039979575,
+      "tag": "0004_query_plan_indexes",
+      "breakpoints": true
     }
   ]
 }
