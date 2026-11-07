@@ -25,6 +25,7 @@ import type { MembersRepository } from './database/repositories/members.reposito
 import { membersRoutes } from './modules/members/members.routes.js';
 import type { TenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
 import { tenantsAdminRoutes } from './modules/admin/tenants-admin.routes.js';
+import type { Idempotency } from './modules/idempotency/idempotency.js';
 
 export type AppDeps = HealthDeps & {
   /** Optional so that tests of unrelated parts do not need a database. */
@@ -40,6 +41,11 @@ export type AppDeps = HealthDeps & {
   members?: MembersRepository;
   /** Companies for platform staff (list, suspend, reactivate). Needs `auth` too. */
   tenantsAdmin?: TenantsAdminRepository;
+  /**
+   * `Idempotency-Key` support for the admin writes that are not repeatable (ADR-0026). Optional:
+   * without it those routes behave as before and the header is ignored.
+   */
+  idempotency?: Idempotency;
 };
 
 export interface AppOptions {
@@ -193,7 +199,7 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     if (error instanceof AppError && error.statusCode < 500) {
       const retryAfter = (error.details as { retryAfterSeconds?: unknown } | undefined)
         ?.retryAfterSeconds;
-      if (error.statusCode === 429 && typeof retryAfter === 'number') {
+      if (typeof retryAfter === 'number') {
         void reply.header('retry-after', String(retryAfter));
       }
       void reply.code(error.statusCode).send({
@@ -241,11 +247,13 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     void app.register(authRoutes(deps.auth, env), { prefix: '/api/v1' });
   }
   if (deps.auth !== undefined && deps.catalogAdmin !== undefined) {
-    void app.register(catalogAdminRoutes(deps.auth, deps.catalogAdmin), { prefix: '/api/v1' });
+    void app.register(catalogAdminRoutes(deps.auth, deps.catalogAdmin, deps.idempotency), {
+      prefix: '/api/v1',
+    });
   }
   if (deps.auth !== undefined && deps.subscriptions !== undefined) {
     void app.register(subscriptionsRoutes(deps.auth, deps.subscriptions), { prefix: '/api/v1' });
-    void app.register(subscriptionsAdminRoutes(deps.auth, deps.subscriptions), {
+    void app.register(subscriptionsAdminRoutes(deps.auth, deps.subscriptions, deps.idempotency), {
       prefix: '/api/v1',
     });
   }

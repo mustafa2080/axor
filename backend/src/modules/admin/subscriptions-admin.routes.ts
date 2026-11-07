@@ -11,6 +11,7 @@ import { createAuthenticate } from '../auth/authenticate.js';
 import type { AuthService } from '../auth/auth.service.js';
 import type { Permission } from '../authz/permissions.js';
 import { authorize } from '../authz/permissions.js';
+import { type Idempotency, withIdempotency } from '../idempotency/idempotency.js';
 
 const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid id');
 const idParams = z.strictObject({ id: uuid });
@@ -27,7 +28,11 @@ const extendBody = z.strictObject({ days: z.number().int().min(1).max(90) });
  * Reading needs `platform:subscriptions:read` (owner, admin, support); changing anything needs
  * `platform:subscriptions:manage` (owner, admin). Company users always get 403.
  */
-export function subscriptionsAdminRoutes(auth: AuthService, subscriptions: SubscriptionsRepository) {
+export function subscriptionsAdminRoutes(
+  auth: AuthService,
+  subscriptions: SubscriptionsRepository,
+  idempotency?: Idempotency,
+) {
   const authenticate = createAuthenticate(auth);
 
   function contextOf(request: FastifyRequest, permission: Permission): AdminContext {
@@ -74,11 +79,16 @@ export function subscriptionsAdminRoutes(auth: AuthService, subscriptions: Subsc
       return ok(await subscriptions.adminCancel(ctx, id));
     });
 
-    app.post('/admin/subscriptions/:id/extend-trial', async (request) => {
+    // Not repeatable by nature: every call adds `days` again. With an `Idempotency-Key` (ADR-0026)
+    // a retry after a timeout gets the first answer instead of a second extension.
+    app.post('/admin/subscriptions/:id/extend-trial', async (request, reply) => {
       const ctx = contextOf(request, 'platform:subscriptions:manage');
       const { id } = parseInput(idParams, request.params);
       const body = parseInput(extendBody, request.body);
-      return ok(await subscriptions.adminExtendTrial(ctx, id, body.days));
+      return withIdempotency(idempotency, request, reply, ctx.actorUserId, async () => ({
+        status: 200,
+        body: ok(await subscriptions.adminExtendTrial(ctx, id, body.days)),
+      }));
     });
   };
 }

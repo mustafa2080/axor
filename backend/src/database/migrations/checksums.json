@@ -4,5 +4,6 @@
   "0002_add_password_changed_at": "fe15efee9b1a047c485f4566650939a15980908c4d0e78d3d5e83d751ad504e2",
   "0003_users_full_name": "48650bbe8886ee26679e932bb4a483b0805ca3c0dd991e665881fbf01ae8dfeb",
   "0004_query_plan_indexes": "bd1772209b6e09a67e5d9271bdffed278e867a08a1754988104aa642e8f931c0",
-  "0005_refresh_sessions_expires_idx": "803d69ef49fdc9f512b9b5c86258d19d318e148102bec1381aadbabcf3922377"
+  "0005_refresh_sessions_expires_idx": "803d69ef49fdc9f512b9b5c86258d19d318e148102bec1381aadbabcf3922377",
+  "0006_idempotency_keys": "906f70119d9eb3a18be7b1042ad55f1e8dc9885dd76952e79da6487386873c26"
 }

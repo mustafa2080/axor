@@ -4,6 +4,7 @@ import type { Database } from '../database/client.js';
 /** Child tables first. Used to wipe the dedicated test database between tests. */
 export const DOMAIN_TABLES = [
   'audit_logs',
+  'idempotency_keys',
   'trial_claims',
   'subscription_events',
   'subscriptions',

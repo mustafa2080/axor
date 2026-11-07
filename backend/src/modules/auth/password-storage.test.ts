@@ -33,7 +33,12 @@ const HASHER_FILE = 'modules/auth/password.ts';
 // the one-off CLI that creates the first platform owner.
 const HASH_CALLERS = new Set([HASHER_FILE, 'modules/auth/auth.service.ts', 'scripts/create-platform-user.ts']);
 // createHash is only for fixed-purpose digests of high-entropy values, never for passwords.
-const DIGEST_FILES = new Set(['database/migration-policy.ts', 'modules/auth/refresh-token.ts']);
+// idempotency.ts fingerprints a request (method, route, params, body) with sha256 (ADR-0026).
+const DIGEST_FILES = new Set([
+  'database/migration-policy.ts',
+  'modules/auth/refresh-token.ts',
+  'modules/idempotency/idempotency.ts',
+]);
 
 describe('password storage guard', () => {
   it('finds the production files, so the checks below are not vacuous', () => {

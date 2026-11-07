@@ -4,6 +4,7 @@ import { createDatabase } from './database/client.js';
 import { createAuditAdminRepository } from './database/repositories/audit-admin.repository.js';
 import { createCatalogAdminRepository } from './database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from './database/repositories/catalog.repository.js';
+import { createIdempotencyKeysRepository } from './database/repositories/idempotency-keys.repository.js';
 import { createMembersRepository } from './database/repositories/members.repository.js';
 import { createRefreshSessionsRepository } from './database/repositories/refresh-sessions.repository.js';
 import { createSubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
@@ -11,6 +12,7 @@ import { createTenantsAdminRepository } from './database/repositories/tenants-ad
 import { createAccessTokenService } from './modules/auth/access-token.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 import { purgeExpiredSessions } from './modules/auth/session-purge.js';
+import { createIdempotency } from './modules/idempotency/idempotency.js';
 import { startExpiryJob } from './modules/subscriptions/expiry-job.js';
 
 const env = loadEnv();
@@ -34,12 +36,14 @@ const auth = createAuthService({
 const catalog = createCatalogRepository(database.db);
 const catalogAdmin = createCatalogAdminRepository(database.db);
 const subscriptions = createSubscriptionsRepository(database.db);
+const idempotencyKeys = createIdempotencyKeysRepository(database.db);
 const app = buildApp(env, {
   checkDatabase: () => database.ping(),
   auth,
   catalog,
   catalogAdmin,
   subscriptions,
+  idempotency: createIdempotency(idempotencyKeys),
   auditAdmin: createAuditAdminRepository(database.db),
   members: createMembersRepository(database.db),
   tenantsAdmin: createTenantsAdminRepository(database.db),
@@ -74,10 +78,22 @@ const sessionPurgeJob = startExpiryJob({
   onError: (error) => app.log.error({ err: error }, 'refresh session purge failed'),
 });
 
+// Deletes stored idempotency responses past their 24 hour life (ADR-0026). Reuses the bounded
+// batch loop of the session purge, with no grace period: an expired key is already ignored.
+const idempotencyPurgeJob = startExpiryJob({
+  run: () => purgeExpiredSessions(idempotencyKeys, { graceMs: 0, batchSize: 1000, maxBatches: 20 }),
+  intervalMs: SESSION_PURGE_INTERVAL_MS,
+  onResult: (purged) => {
+    if (purged > 0) app.log.info({ purged }, 'expired idempotency keys purged');
+  },
+  onError: (error) => app.log.error({ err: error }, 'idempotency key purge failed'),
+});
+
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
   await expiryJob.stop();
   await sessionPurgeJob.stop();
+  await idempotencyPurgeJob.stop();
   await app.close();
   await auth.drain();
   await database.close();

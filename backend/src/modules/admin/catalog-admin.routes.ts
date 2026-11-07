@@ -17,6 +17,7 @@ import {
 import { createAuthenticate } from '../auth/authenticate.js';
 import type { AuthService } from '../auth/auth.service.js';
 import { authorize } from '../authz/permissions.js';
+import { type Idempotency, withIdempotency } from '../idempotency/idempotency.js';
 
 const code = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,49}$/, 'Use lowercase letters, digits, - or _');
 const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid id');
@@ -95,7 +96,7 @@ function compact<T extends Record<string, unknown>>(value: T): { [K in keyof T]?
  * Every route needs a signed-in PLATFORM user whose role grants `platform:plans:manage`
  * (owner and admin; not support, and never a company user).
  */
-export function catalogAdminRoutes(auth: AuthService, admin: CatalogAdminRepository) {
+export function catalogAdminRoutes(auth: AuthService, admin: CatalogAdminRepository, idempotency?: Idempotency) {
   const authenticate = createAuthenticate(auth);
 
   function contextOf(request: FastifyRequest): AdminContext {
@@ -163,12 +164,16 @@ export function catalogAdminRoutes(auth: AuthService, admin: CatalogAdminReposit
     });
 
     // New price/limits/features = a NEW version that becomes current. Versions are never edited.
+    // Every call adds a version, so a retry after a timeout must not run twice: with an
+    // `Idempotency-Key` (ADR-0026) it gets the first answer instead.
     app.post('/admin/catalog/plans/:id/versions', async (request, reply) => {
       const ctx = contextOf(request);
       const { id } = parseInput(idParams, request.params);
       const body = parseInput(versionSpec, request.body);
-      void reply.code(201);
-      return ok(await admin.addVersion(ctx, id, body));
+      return withIdempotency(idempotency, request, reply, ctx.actorUserId, async () => ({
+        status: 201,
+        body: ok(await admin.addVersion(ctx, id, body)),
+      }));
     });
 
     app.patch('/admin/catalog/plans/:id', async (request) => {

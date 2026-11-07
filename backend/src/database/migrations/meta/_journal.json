@@ -43,6 +43,13 @@
       "when": 1794062803324,
       "tag": "0005_refresh_sessions_expires_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794065411705,
+      "tag": "0006_idempotency_keys",
+      "breakpoints": true
     }
   ]
 }

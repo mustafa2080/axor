@@ -2,6 +2,7 @@
 export * from './audit-logs.js';
 export * from './business-activities.js';
 export * from './enums.js';
+export * from './idempotency-keys.js';
 export * from './plan-versions.js';
 export * from './plans.js';
 export * from './products.js';
