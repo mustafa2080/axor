@@ -26,6 +26,7 @@
 | `ACCESS_TOKEN_TTL_SECONDS`، `REFRESH_TOKEN_TTL_DAYS` | ليهم قيم افتراضية |
 | `DB_POOL_SIZE` (10) / `DB_POOL_QUEUE_LIMIT` (100) | حدود اتصالات قاعدة البيانات **لكل instance** (ADR-0019). مجموع `DB_POOL_SIZE` على كل الـ instances لازم يفضل أقل من `max_connections` في MariaDB بهامش للصيانة والـ migrations. لو الـ queue امتلت الطلبات الزيادة بترجع 503 فوراً |
 | `DB_STATEMENT_TIMEOUT_MS` (15000) | أطول وقت لاستعلام واحد قبل ما MariaDB تقتله (`max_statement_time`). `0` = من غير حد. الـ migrations والسكربتات مش متأثرة. الاستعلام المقتول بيرجّع 503 `SERVICE_BUSY` مع `Retry-After: 5` |
+| `REQUEST_HANDLER_TIMEOUT_MS` (30000) | أطول وقت لطلب واحد في المصادقة والـ handler قبل ما العميل ياخد `504 REQUEST_TIMEOUT` (ADR-0020). الـ handler **مش بيتلغي** وممكن يكمل في الخلفية. `0` = من غير حد، **والإنتاج بيرفضه**. في الإنتاج لازم يكون أكبر من `DB_STATEMENT_TIMEOUT_MS` وإلا الخادم مش هيشتغل |
 
 الأسرار بتتحط في مخزن الأسرار بتاع المنصة (**ينتظر قرار**)، مش في ملفات YAML ولا في المستودع.
 

@@ -119,6 +119,41 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     return payload;
   });
 
+  // Time limit on auth plus the handler (ADR-0020). Node cannot cancel a running handler, so when
+  // the limit passes the client gets a 504 and the work may still finish in the background: a
+  // write can complete after its 504. That is why the answer says "unknown outcome" and carries no
+  // Retry-After unless the method is safe to repeat. The timer is dropped as soon as any answer
+  // starts to be sent, and unref'd so it never keeps the process alive.
+  if (env.REQUEST_HANDLER_TIMEOUT_MS > 0) {
+    const timers = new WeakMap<FastifyRequest, NodeJS.Timeout>();
+    app.addHook('preHandler', (request, reply, done) => {
+      const timer = setTimeout(() => {
+        if (reply.sent) return;
+        request.log.warn(
+          { route: request.routeOptions.url, timeoutMs: env.REQUEST_HANDLER_TIMEOUT_MS },
+          'request timed out',
+        );
+        const safeToRepeat = ['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+        if (safeToRepeat) void reply.header('retry-after', '5');
+        void reply.code(504).send({
+          error: {
+            code: 'REQUEST_TIMEOUT',
+            message: safeToRepeat
+              ? 'The request took too long, please try again shortly'
+              : 'The request took too long and its outcome is unknown, check the current state before repeating it',
+          },
+        });
+      }, env.REQUEST_HANDLER_TIMEOUT_MS);
+      timer.unref();
+      timers.set(request, timer);
+      done();
+    });
+    app.addHook('onSend', (request, _reply, payload, done) => {
+      clearTimeout(timers.get(request));
+      done(null, payload);
+    });
+  }
+
   // Browsers may call this API only from the one configured web origin, with credentials
   // (the refresh cookie). Exact match: no wildcard, no regex, never reflecting arbitrary origins.
   void app.register(cors, {

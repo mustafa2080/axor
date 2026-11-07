@@ -33,6 +33,11 @@ const envSchema = z.object({
   DB_POOL_QUEUE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
   /** Longest a single SQL statement may run, in ms. 0 turns the limit off. */
   DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).max(300_000).default(15_000),
+  /**
+   * Longest a request may spend in auth and its handler, in ms; past it the client gets a 504 (ADR-0020).
+   * The handler itself is NOT cancelled. 0 turns the limit off, which production refuses.
+   */
+  REQUEST_HANDLER_TIMEOUT_MS: z.coerce.number().int().min(0).max(300_000).default(30_000),
   /** HMAC secret for access tokens (ADR-0004). Never commit a real value. */
   JWT_ACCESS_SECRET: z
     .string()
@@ -94,6 +99,25 @@ const envSchema = z.object({
       code: 'custom',
       path: ['DATABASE_URL'],
       message: 'DATABASE_URL must use a dedicated least-privilege user, not root, in production',
+    });
+  }
+  // The request limit is what stops a slow handler holding a client forever (ADR-0020). It must
+  // also outlast the statement limit, so a slow query surfaces as the retry-safe 503 (ADR-0019)
+  // before the 504 whose outcome is unknown.
+  if (env.REQUEST_HANDLER_TIMEOUT_MS === 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REQUEST_HANDLER_TIMEOUT_MS'],
+      message: 'REQUEST_HANDLER_TIMEOUT_MS must not be 0 (no limit) in production',
+    });
+  } else if (
+    env.DB_STATEMENT_TIMEOUT_MS > 0 &&
+    env.REQUEST_HANDLER_TIMEOUT_MS <= env.DB_STATEMENT_TIMEOUT_MS
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REQUEST_HANDLER_TIMEOUT_MS'],
+      message: 'REQUEST_HANDLER_TIMEOUT_MS must be greater than DB_STATEMENT_TIMEOUT_MS in production',
     });
   }
 });
