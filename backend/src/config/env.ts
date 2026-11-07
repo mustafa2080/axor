@@ -32,9 +32,24 @@ const envSchema = z.object({
     .string()
     .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters')
     .refine((value) => !value.startsWith('CHANGE_ME'), 'JWT_ACCESS_SECRET still has the placeholder value'),
+  /**
+   * Previous HMAC secret, set ONLY during a rotation: it verifies old tokens but never signs
+   * (ADR-0017 §5). Leave it unset or empty otherwise.
+   */
+  JWT_ACCESS_SECRET_PREVIOUS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(32, 'JWT_ACCESS_SECRET_PREVIOUS must be at least 32 characters').optional(),
+  ),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
 }).superRefine((env, ctx) => {
+  if (env.JWT_ACCESS_SECRET_PREVIOUS !== undefined && env.JWT_ACCESS_SECRET_PREVIOUS === env.JWT_ACCESS_SECRET) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_SECRET_PREVIOUS'],
+      message: 'JWT_ACCESS_SECRET_PREVIOUS must differ from JWT_ACCESS_SECRET',
+    });
+  }
   // Production hardening: a setting that is fine on a laptop but unsafe on a server stops the
   // process at startup instead of running quietly with it (ADR-0016).
   if (env.NODE_ENV !== 'production') return;
@@ -59,6 +74,13 @@ const envSchema = z.object({
       path: ['JWT_ACCESS_SECRET'],
       message:
         'JWT_ACCESS_SECRET looks guessable (too few distinct characters or a placeholder/test word); generate a random one in production',
+    });
+  }
+  if (env.JWT_ACCESS_SECRET_PREVIOUS !== undefined && isWeakSecret(env.JWT_ACCESS_SECRET_PREVIOUS)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_SECRET_PREVIOUS'],
+      message: 'JWT_ACCESS_SECRET_PREVIOUS looks guessable; it must have been a random secret in production',
     });
   }
   if (decodeURIComponent(new URL(env.DATABASE_URL).username).toLowerCase() === 'root') {

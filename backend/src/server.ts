@@ -15,6 +15,7 @@ const env = loadEnv();
 const database = createDatabase(env.DATABASE_URL);
 const accessTokens = createAccessTokenService({
   secret: env.JWT_ACCESS_SECRET,
+  previousSecret: env.JWT_ACCESS_SECRET_PREVIOUS,
   ttlSeconds: env.ACCESS_TOKEN_TTL_SECONDS,
   issuer: 'axor-api',
   audience: 'axor-web',

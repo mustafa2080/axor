@@ -236,6 +236,23 @@ describe('production hardening (ADR-0016)', () => {
     ).toBe('a'.repeat(40));
   });
 
+  it('validates JWT_ACCESS_SECRET_PREVIOUS: optional, blank means unset, never equal or weak (ADR-0017)', () => {
+    const previous = 'Zp4Hd8KxQ2mVn7TwLc1RbY6sUe3GjAo9FiNk5XyCq0Dv+Mh';
+    expect(prod().JWT_ACCESS_SECRET_PREVIOUS).toBeUndefined();
+    expect(prod({ JWT_ACCESS_SECRET_PREVIOUS: '' }).JWT_ACCESS_SECRET_PREVIOUS).toBeUndefined();
+    expect(prod({ JWT_ACCESS_SECRET_PREVIOUS: previous }).JWT_ACCESS_SECRET_PREVIOUS).toBe(previous);
+    expect(() => prod({ JWT_ACCESS_SECRET_PREVIOUS: strongSecret })).toThrow(/JWT_ACCESS_SECRET_PREVIOUS/);
+    expect(() => prod({ JWT_ACCESS_SECRET_PREVIOUS: 'short' })).toThrow(/JWT_ACCESS_SECRET_PREVIOUS/);
+    let message = '';
+    try {
+      prod({ JWT_ACCESS_SECRET_PREVIOUS: 'a'.repeat(48) });
+    } catch (error) {
+      message = String(error instanceof Error ? error.message : error);
+    }
+    expect(message).toContain('JWT_ACCESS_SECRET_PREVIOUS');
+    expect(message).not.toContain('a'.repeat(48));
+  });
+
   it('refuses to start with a plain-http web origin', () => {
     expect(() => prod({ WEB_ORIGIN: 'http://axor.example' })).toThrow(/WEB_ORIGIN/);
     expect(() => prod({ WEB_ORIGIN: 'http://localhost:5173' })).toThrow(/WEB_ORIGIN/);

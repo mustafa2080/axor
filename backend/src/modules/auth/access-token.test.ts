@@ -126,3 +126,48 @@ describe('access token service', () => {
     expect(() => createAccessTokenService({ ...base, ttlSeconds: 86_400 })).toThrow();
   });
 });
+
+
+describe('secret rotation (ADR-0017 section 5)', () => {
+  const OLD = 'old-secret-that-is-also-at-least-32-characters-long';
+  const NEW = 'new-secret-that-is-also-at-least-32-characters-long';
+  const oldOnly = { ...base, secret: OLD };
+  const rotating = { ...base, secret: NEW, previousSecret: OLD };
+  const newOnly = { ...base, secret: NEW };
+
+  it('still accepts tokens signed with the previous secret while rotating', async () => {
+    const { token } = await createAccessTokenService(oldOnly).sign(USER_ID);
+    const verified = await createAccessTokenService(rotating).verify(token);
+    expect(verified.userId).toBe(USER_ID);
+  });
+
+  it('signs with the current secret only: the previous one never signs', async () => {
+    const { token } = await createAccessTokenService(rotating).sign(USER_ID);
+    expect((await createAccessTokenService(newOnly).verify(token)).userId).toBe(USER_ID);
+    await expectRejected(createAccessTokenService(oldOnly).verify(token));
+  });
+
+  it('rejects the old tokens once the previous secret is removed', async () => {
+    const { token } = await createAccessTokenService(oldOnly).sign(USER_ID);
+    await expectRejected(createAccessTokenService(newOnly).verify(token));
+  });
+
+  it('still rejects a token signed with an unrelated secret, with the same generic 401', async () => {
+    const other = 'unrelated-secret-that-is-at-least-32-characters-long';
+    const { token } = await createAccessTokenService({ ...base, secret: other }).sign(USER_ID);
+    await expectRejected(createAccessTokenService(rotating).verify(token));
+  });
+
+  it('keeps every other check when the previous key is the one that matches', async () => {
+    const clock = makeClock();
+    const signer = createAccessTokenService({ ...oldOnly, clock: clock.clock });
+    const { token } = await signer.sign(USER_ID);
+    clock.advanceSeconds(900 + 60);
+    await expectRejected(createAccessTokenService({ ...rotating, clock: clock.clock }).verify(token));
+  });
+
+  it('refuses a short or identical previous secret', () => {
+    expect(() => createAccessTokenService({ ...base, previousSecret: 'short' })).toThrow();
+    expect(() => createAccessTokenService({ ...base, previousSecret: base.secret })).toThrow();
+  });
+});
