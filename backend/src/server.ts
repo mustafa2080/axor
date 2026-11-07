@@ -5,10 +5,12 @@ import { createAuditAdminRepository } from './database/repositories/audit-admin.
 import { createCatalogAdminRepository } from './database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from './database/repositories/catalog.repository.js';
 import { createMembersRepository } from './database/repositories/members.repository.js';
+import { createRefreshSessionsRepository } from './database/repositories/refresh-sessions.repository.js';
 import { createSubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
 import { createTenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
 import { createAccessTokenService } from './modules/auth/access-token.js';
 import { createAuthService } from './modules/auth/auth.service.js';
+import { purgeExpiredSessions } from './modules/auth/session-purge.js';
 import { startExpiryJob } from './modules/subscriptions/expiry-job.js';
 
 const env = loadEnv();
@@ -54,9 +56,28 @@ const expiryJob = startExpiryJob({
   onError: (error) => app.log.error({ err: error }, 'subscription expiry pass failed'),
 });
 
+// Deletes refresh sessions that expired more than a week ago (ADR-0025). Same scheduler as above:
+// passes never overlap, a failure is logged and retried, and the timer never keeps the process up.
+const SESSION_PURGE_INTERVAL_MS = 60 * 60_000;
+const refreshSessions = createRefreshSessionsRepository(database.db);
+const sessionPurgeJob = startExpiryJob({
+  run: () =>
+    purgeExpiredSessions(refreshSessions, {
+      graceMs: 7 * 24 * 60 * 60_000,
+      batchSize: 1000,
+      maxBatches: 20,
+    }),
+  intervalMs: SESSION_PURGE_INTERVAL_MS,
+  onResult: (purged) => {
+    if (purged > 0) app.log.info({ purged }, 'expired refresh sessions purged');
+  },
+  onError: (error) => app.log.error({ err: error }, 'refresh session purge failed'),
+});
+
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
   await expiryJob.stop();
+  await sessionPurgeJob.stop();
   await app.close();
   await auth.drain();
   await database.close();

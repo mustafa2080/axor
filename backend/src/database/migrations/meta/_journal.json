@@ -36,6 +36,13 @@
       "when": 1794039979575,
       "tag": "0004_query_plan_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794062803324,
+      "tag": "0005_refresh_sessions_expires_idx",
+      "breakpoints": true
     }
   ]
 }

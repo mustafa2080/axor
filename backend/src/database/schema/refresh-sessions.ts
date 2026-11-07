@@ -25,5 +25,7 @@ export const refreshSessions = mysqlTable(
     uniqueIndex('refresh_sessions_token_hash_uq').on(t.tokenHash),
     index('refresh_sessions_user_id_idx').on(t.userId),
     index('refresh_sessions_family_id_idx').on(t.familyId),
+    // The purge job deletes by `expires_at` (ADR-0025); without this it would scan the table.
+    index('refresh_sessions_expires_at_idx').on(t.expiresAt),
   ],
 );

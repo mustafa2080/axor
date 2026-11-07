@@ -99,3 +99,79 @@ describe('retryOnDeadlock', () => {
     expect(calls).toBe(3);
   });
 });
+
+describe('purgeExpired (ADR-0025)', () => {
+  const DAY = 24 * 60 * 60_000;
+  const cutoff = new Date(Date.now() - 7 * DAY);
+
+  async function seed(expiresAt: Date, revokedAt: Date | null = null): Promise<string> {
+    const id = uuidv7();
+    await db.insert(schema.refreshSessions).values({
+      id,
+      userId,
+      familyId: uuidv7(),
+      tokenHash: uuidv7().replaceAll('-', '').padEnd(64, '0'),
+      expiresAt,
+      revokedAt,
+    });
+    return id;
+  }
+
+  const remaining = async () => (await db.select({ id: schema.refreshSessions.id }).from(schema.refreshSessions)).map((r) => r.id);
+
+  it('deletes only sessions that expired before the cutoff', async () => {
+    const old = await seed(new Date(cutoff.getTime() - DAY));
+    const withinGrace = await seed(new Date(cutoff.getTime() + DAY));
+    const live = await seed(new Date(Date.now() + DAY));
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(1);
+    const left = await remaining();
+    expect(left).not.toContain(old);
+    expect(left).toEqual(expect.arrayContaining([withinGrace, live]));
+  });
+
+  it('keeps a revoked session that has not expired, because reuse detection needs it', async () => {
+    const revoked = await seed(new Date(Date.now() + DAY), new Date());
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(0);
+    expect(await remaining()).toContain(revoked);
+  });
+
+  it('deletes expired revoked sessions too once they are past the grace period', async () => {
+    await seed(new Date(cutoff.getTime() - DAY), new Date(cutoff.getTime() - 2 * DAY));
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(1);
+    expect(await remaining()).toHaveLength(0);
+  });
+
+  it('never deletes more than the batch size in one call', async () => {
+    for (let i = 0; i < 5; i += 1) await seed(new Date(cutoff.getTime() - DAY));
+    expect(await sessions.purgeExpired(cutoff, 2)).toBe(2);
+    expect(await remaining()).toHaveLength(3);
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(3);
+  });
+
+  it('keeps reuse detectable during the grace period and answers "invalid" only after the purge', async () => {
+    const tokenHash = uuidv7().replaceAll('-', '').padEnd(64, '0');
+    const expiredAt = new Date(Date.now() - DAY);
+    const insert = () =>
+      db.insert(schema.refreshSessions).values({
+        id: uuidv7(),
+        userId,
+        familyId: uuidv7(),
+        tokenHash,
+        expiresAt: expiredAt,
+        revokedAt: new Date(Date.now() - 2 * DAY),
+      });
+
+    // Expired yesterday, so still inside a 7-day grace period: a purge with that cutoff keeps it.
+    await insert();
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(0);
+    expect((await sessions.rotate(tokenHash, next(), new Date())).status).toBe('reuse_detected');
+
+    // After the grace period it is deleted, and the same token is just unknown.
+    expect(await sessions.purgeExpired(new Date(), 100)).toBe(1);
+    expect((await sessions.rotate(tokenHash, next(), new Date())).status).toBe('invalid');
+  });
+
+  it('does nothing when the table is empty', async () => {
+    expect(await sessions.purgeExpired(cutoff, 100)).toBe(0);
+  });
+});

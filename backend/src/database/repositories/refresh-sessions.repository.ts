@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, lt } from 'drizzle-orm';
 import { uuidv7 } from '../../common/id.js';
 import type { Database } from '../client.js';
 import { retryOnDeadlock } from '../retry.js';
@@ -128,6 +128,21 @@ export function createRefreshSessionsRepository(db: Database['db']) {
         .update(refreshSessions)
         .set({ revokedAt: now })
         .where(and(eq(refreshSessions.userId, userId), isNull(refreshSessions.revokedAt)));
+    },
+
+    /**
+     * Housekeeping (ADR-0025): deletes at most `batchSize` sessions whose `expires_at` is before
+     * `cutoff` and returns how many it deleted. Only the end date decides: a revoked session that
+     * has not expired yet is kept, because presenting it again is what reveals token reuse in
+     * `rotate`. The caller picks `cutoff` as "now minus a grace period", so reuse stays detectable
+     * for a while after expiry. Access never depends on this: `rotate` already refuses expired rows.
+     */
+    async purgeExpired(cutoff: Date, batchSize: number): Promise<number> {
+      const [result] = await db
+        .delete(refreshSessions)
+        .where(lt(refreshSessions.expiresAt, cutoff))
+        .limit(batchSize);
+      return result.affectedRows;
     },
   };
 }
