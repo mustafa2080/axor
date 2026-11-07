@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+/** Words that mean "someone copied an example or test value into production". */
+const PLACEHOLDER_WORDS = ['changeme', 'change_me', 'placeholder', 'password', 'example', 'unit-test', 'test-only'];
+const MIN_DISTINCT_SECRET_CHARS = 16;
+
+/**
+ * True when a production signing secret is obviously guessable (ADR-0017). This is a floor, not a
+ * proof of randomness: a random 32+ byte value (see deploy.md) has far more than 16 distinct
+ * characters and practically never contains these words. The secret itself is never echoed in the error.
+ */
+export function isWeakSecret(secret: string): boolean {
+  const lower = secret.toLowerCase();
+  if (PLACEHOLDER_WORDS.some((word) => lower.includes(word))) return true;
+  return new Set(secret).size < MIN_DISTINCT_SECRET_CHARS;
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -36,6 +51,14 @@ const envSchema = z.object({
       code: 'custom',
       path: ['LOG_LEVEL'],
       message: 'LOG_LEVEL must not be debug or trace in production',
+    });
+  }
+  if (isWeakSecret(env.JWT_ACCESS_SECRET)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_SECRET'],
+      message:
+        'JWT_ACCESS_SECRET looks guessable (too few distinct characters or a placeholder/test word); generate a random one in production',
     });
   }
   if (decodeURIComponent(new URL(env.DATABASE_URL).username).toLowerCase() === 'root') {

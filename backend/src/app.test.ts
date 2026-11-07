@@ -91,7 +91,7 @@ describe('browser security: Helmet and CORS', () => {
       LOG_LEVEL: 'silent',
       WEB_ORIGIN: 'https://axor.example',
       DATABASE_URL: testUrl,
-      JWT_ACCESS_SECRET: testSecret,
+      JWT_ACCESS_SECRET: 'q7Vn+3kX9tLw2RzE8yBd5HcAfGm1JsUo4PiNb6TeKxZ0YaCv',
     });
     const prod = await buildApp(prodEnv, healthyDeps).inject({
       method: 'GET',
@@ -187,13 +187,15 @@ describe('loadEnv', () => {
 
 
 describe('production hardening (ADR-0016)', () => {
+  // A random-looking value, as `deploy.md` tells operators to generate (ADR-0017).
+  const strongSecret = 'q7Vn+3kX9tLw2RzE8yBd5HcAfGm1JsUo4PiNb6TeKxZ0YaCv';
   const prod = (overrides: Record<string, string> = {}) =>
     loadEnv({
       NODE_ENV: 'production',
       LOG_LEVEL: 'silent',
       WEB_ORIGIN: 'https://axor.example',
       DATABASE_URL: 'mysql://axor_app:pass@127.0.0.1:3306/axor_prod',
-      JWT_ACCESS_SECRET: testSecret,
+      JWT_ACCESS_SECRET: strongSecret,
       ...overrides,
     });
 
@@ -202,6 +204,36 @@ describe('production hardening (ADR-0016)', () => {
     for (const level of ['fatal', 'error', 'warn', 'info', 'silent']) {
       expect(prod({ LOG_LEVEL: level }).LOG_LEVEL).toBe(level);
     }
+  });
+
+  it('refuses to start with a guessable JWT_ACCESS_SECRET, and never prints it (ADR-0017)', () => {
+    const weak = [
+      'a'.repeat(48),
+      'abcabcabcabcabcabcabcabcabcabcabcabc',
+      '0123456789012345678901234567890123456789',
+      testSecret,
+      'test-only-access-secret-not-used-anywhere-else-0123456789',
+      'Please-ChangeMe-before-going-live-Zq8Xw3Lp9',
+      'my-super-Password-for-the-axor-platform-8Qx2',
+    ];
+    for (const secret of weak) {
+      let message = '';
+      try {
+        prod({ JWT_ACCESS_SECRET: secret });
+      } catch (error) {
+        message = String(error instanceof Error ? error.message : error);
+      }
+      expect(message, secret).toContain('JWT_ACCESS_SECRET');
+      expect(message, secret).not.toContain(secret);
+    }
+  });
+
+  it('accepts a random JWT_ACCESS_SECRET, and still allows a plain one outside production', () => {
+    expect(prod().JWT_ACCESS_SECRET).toBe(strongSecret);
+    expect(
+      loadEnv({ NODE_ENV: 'development', DATABASE_URL: testUrl, JWT_ACCESS_SECRET: 'a'.repeat(40) })
+        .JWT_ACCESS_SECRET,
+    ).toBe('a'.repeat(40));
   });
 
   it('refuses to start with a plain-http web origin', () => {

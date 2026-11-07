@@ -563,6 +563,7 @@ describe('production cookie attributes', () => {
       NODE_ENV: 'production',
       LOG_LEVEL: 'silent',
       WEB_ORIGIN: prodOrigin,
+      JWT_ACCESS_SECRET: 'q7Vn+3kX9tLw2RzE8yBd5HcAfGm1JsUo4PiNb6TeKxZ0YaCv',
     });
     const prodApp = newApp(prodEnv);
     await prodApp.ready();

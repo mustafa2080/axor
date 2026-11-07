@@ -17,7 +17,7 @@
 |---|---|
 | `NODE_ENV=production` | بيفعّل `Secure` على الكوكي وHSTS، وبيشغّل فحوصات الإنتاج: الخادم مبيشتغلش لو `WEB_ORIGIN` مش https أو `LOG_LEVEL` بقى `debug`/`trace` أو `DATABASE_URL` بمستخدم `root` (ADR-0016) |
 | `DATABASE_URL` | `mysql://...`، بمستخدم مخصوص بصلاحيات على قاعدة التطبيق بس، مش root (الخادم بيرفض root في الإنتاج) |
-| `JWT_ACCESS_SECRET` | 32 حرف على الأقل، ومش بيبدأ بـ `CHANGE_ME`. توليد: `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"` |
+| `JWT_ACCESS_SECRET` | 32 حرف على الأقل ومولَّد عشوائياً. في الإنتاج الخادم بيرفض السر لو فيه أقل من 16 حرف مختلف أو بيحتوي على `changeme` أو `placeholder` أو `password` أو `example` أو `unit-test` أو `test-only` (ADR-0017). توليد: `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`. تغيير السر بيبطل كل access tokens الحالية (15 دقيقة) والمستخدمين بيجددوها بالـ refresh من غير ما يسجّلوا دخول تاني |
 | `WEB_ORIGIN` | عنوان الواجهة بالظبط (مطابقة تامة لـ CORS وفحص `Origin`)، وفي الإنتاج لازم يبدأ بـ `https://` |
 | `API_HOST` / `API_PORT` | الافتراضي `127.0.0.1:4000`، يعني الخادم مش مكشوف إلا عن طريق الـ proxy |
 | `TRUST_PROXY=true` | **فقط** لو فيه reverse proxy بتتحكم فيه. غير كده الـ rate limit هيشوف IP الـ proxy |

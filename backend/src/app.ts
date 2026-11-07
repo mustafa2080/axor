@@ -94,7 +94,7 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     logger,
     trustProxy: env.TRUST_PROXY,
     bodyLimit: MAX_BODY_BYTES,
-    maxParamLength: MAX_PARAM_LENGTH,
+    routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
     requestTimeout: REQUEST_TIMEOUT_MS,
     // Accept a well-formed incoming id (for tracing across services); otherwise generate one.
     // Anything else is ignored so clients cannot inject arbitrary text into the logs.
