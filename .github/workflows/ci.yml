@@ -40,12 +40,12 @@ jobs:
       DATABASE_URL: mysql://axor_app:ci_app_only@127.0.0.1:3306/axor_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # pnpm version is read from the root package.json "packageManager" field.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -62,9 +62,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -79,10 +79,10 @@ jobs:
 
     steps:
       # fetch-depth 0: the scan reads every line ever added in any commit, not just the tip.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # No dependencies on purpose (scripts/secret-scan.mjs is plain Node).
