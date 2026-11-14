@@ -71,6 +71,7 @@ body {
   background:
     radial-gradient(60rem 28rem at 50% -8rem, color-mix(in oklab, var(--accent) 9%, transparent), transparent 70%),
     linear-gradient(180deg, var(--bg), color-mix(in oklab, var(--bg) 92%, #000));
+  background-color: var(--bg);
   background-attachment: fixed;
 }
 
