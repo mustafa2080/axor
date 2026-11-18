@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../app.js';
 import { uuidv7 } from '../../common/id.js';
 import { loadEnv } from '../../config/env.js';
@@ -376,6 +376,75 @@ describe('brute-force protection', () => {
       expect((await login('ghost@alpha.test', `wrong ${i}`)).statusCode).toBe(401);
     }
     expect((await login('ghost@alpha.test')).statusCode).toBe(429);
+  });
+
+  it('makes a repeat offender wait longer: the second block is twice the first (ADR-0004 §6)', async () => {
+    // Only Date is faked, so the database driver and Argon2 keep running on real timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const failFiveTimes = async () => {
+        for (let i = 0; i < 5; i += 1) {
+          expect((await login('owner@alpha.test', `wrong ${i}`)).statusCode).toBe(401);
+        }
+      };
+
+      await failFiveTimes();
+      const first = await login('owner@alpha.test');
+      expect(first.statusCode).toBe(429);
+      expect(Number(first.headers['retry-after'])).toBeGreaterThan(14 * 60);
+      expect(Number(first.headers['retry-after'])).toBeLessThanOrEqual(15 * 60);
+
+      vi.setSystemTime(Date.now() + 15 * 60 * 1000 + 1000); // the first block is over
+      await failFiveTimes();
+      const second = await login('owner@alpha.test');
+      expect(second.statusCode).toBe(429);
+      expect(Number(second.headers['retry-after'])).toBeGreaterThan(29 * 60);
+      expect(Number(second.headers['retry-after'])).toBeLessThanOrEqual(30 * 60);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('never lengthens the block on the email alone, so nobody can lock a victim out for long', async () => {
+    // Failures from 30 different addresses block the email key. That key is shared with the real
+    // owner, so it stays a flat 15 minutes however often it is blocked (only the per-address key
+    // escalates, because an attacker cannot aim it at someone else).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const failFromManyAddresses = async (round: number) => {
+        for (let i = 0; i < 30; i += 1) {
+          const res = await app.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: `10.${round}.0.${i + 1}`,
+            headers: { origin: ORIGIN },
+            payload: { email: 'owner@alpha.test', password: `wrong ${round}-${i}` },
+          });
+          expect(res.statusCode).toBe(401);
+        }
+      };
+      const blockedFromNewAddress = (round: number) =>
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/auth/login',
+          remoteAddress: `10.${round}.1.1`,
+          headers: { origin: ORIGIN },
+          payload: { email: 'owner@alpha.test', password: PASSWORD },
+        });
+
+      for (let round = 1; round <= 3; round += 1) {
+        await failFromManyAddresses(round);
+        const blocked = await blockedFromNewAddress(round);
+        expect(blocked.statusCode).toBe(429);
+        expect(Number(blocked.headers['retry-after'])).toBeLessThanOrEqual(15 * 60);
+        vi.setSystemTime(Date.now() + 15 * 60 * 1000 + 1000);
+        // The block is over and the real owner gets in, from yet another address.
+        const owner = await blockedFromNewAddress(round);
+        expect(owner.statusCode).toBe(200);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a successful login resets the per-ip counter', async () => {

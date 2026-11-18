@@ -166,7 +166,8 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
     origin: [new URL(env.WEB_ORIGIN).origin],
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['content-type', 'authorization', 'x-request-id'],
+    // idempotency-key: sent by the web app on writes that must not run twice (ADR-0026).
+    allowedHeaders: ['content-type', 'authorization', 'x-request-id', 'idempotency-key'],
     exposedHeaders: ['x-request-id', 'retry-after'],
     maxAge: 600,
   });

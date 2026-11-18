@@ -174,6 +174,27 @@ describe('browser security: Helmet and CORS', () => {
     const foreign = await preflight('https://evil.example');
     expect(foreign.headers['access-control-allow-origin']).toBeUndefined();
   });
+
+  it('lets a browser on another origin send Idempotency-Key, and never allows any header', async () => {
+    // The web app sends this header on the writes that must not run twice (ADR-0026). It is not a
+    // CORS-safelisted header, so a browser asks first; if the preflight does not list it, the request
+    // is blocked and the retry protection silently stops working on a deployment with a separate
+    // web origin.
+    const app = buildApp(env, healthyDeps);
+    const preflight = await app.inject({
+      method: 'OPTIONS',
+      url: '/api/v1/admin/subscriptions/00000000-0000-7000-8000-000000000000/extend-trial',
+      headers: {
+        origin: webOrigin,
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type,authorization,idempotency-key',
+      },
+    });
+    expect(preflight.statusCode).toBe(204);
+    const allowed = String(preflight.headers['access-control-allow-headers']).toLowerCase();
+    expect(allowed).toContain('idempotency-key');
+    expect(allowed).not.toContain('*');
+  });
 });
 
 describe('loadEnv', () => {

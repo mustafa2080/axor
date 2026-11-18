@@ -136,7 +136,14 @@ export function createAuthService(deps: AuthServiceDeps) {
     return Promise.resolve();
   }
   // 5 failures per (ip + email) and 30 per email across all IPs, per 15 minutes (ADR-0004 §6).
-  const byIpAndEmail = createFailureThrottle({ maxFailures: 5, windowMs: WINDOW_MS });
+  // Only the (ip + email) key escalates (15 min, 30 min, 1 h ... up to 24 h): an attacker can only
+  // reach it from his own address. The email-only key stays a flat window, because a longer block
+  // there would let anyone lock a victim out of their own account (ADR-0004 §6).
+  const byIpAndEmail = createFailureThrottle({
+    maxFailures: 5,
+    windowMs: WINDOW_MS,
+    escalation: { maxBlockMs: 24 * 60 * 60 * 1000, memoryMs: 24 * 60 * 60 * 1000 },
+  });
   const byEmail = createFailureThrottle({ maxFailures: 30, windowMs: WINDOW_MS });
   // Registrations cost an Argon2 hash and create rows: 5 attempts per IP per hour (ADR-0004 §10).
   const registrationsByIp = createFailureThrottle({
