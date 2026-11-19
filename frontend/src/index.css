@@ -613,7 +613,9 @@ select:hover:not(:disabled) {
 }
 input:not([type='checkbox'], [type='radio']):focus-visible,
 select:focus-visible {
-  outline: none;
+  /* transparent, not none: forced-colors drops box-shadow and paints this outline instead */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
   box-shadow:
     0 0 0 1px var(--accent),
     0 0 0 4px var(--focus);
