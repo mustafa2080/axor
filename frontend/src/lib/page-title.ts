@@ -17,6 +17,10 @@ const PUBLIC: Readonly<Record<PublicRoute, string>> = {
   systems: 'الأنظمة',
   system: 'تفاصيل النظام',
   trial: 'التجربة المجانية',
+  faq: 'الأسئلة الشائعة',
+  contact: 'تواصل معنا',
+  terms: 'الشروط والأحكام',
+  privacy: 'سياسة الخصوصية',
 }
 
 const COMPANY: Readonly<Record<string, string>> = {
@@ -29,7 +33,7 @@ const PLATFORM: Readonly<Record<string, string>> = {
   '#/subscriptions': 'الاشتراكات',
   '#/tenants': 'الشركات',
   '#/audit': 'سجل التدقيق',
-  '#/site': 'الصفحة الرئيسية',
+  '#/site': 'محتوى الموقع',
 }
 
 function withBrand(page: string): string {

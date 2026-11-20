@@ -14,7 +14,7 @@ describe('auditActionLabel', () => {
   })
 
   it('translates the home-page content events', () => {
-    for (const action of ['site.home_updated', 'site.home_reset']) {
+    for (const action of ['site.home_updated', 'site.home_reset', 'site.page_updated', 'site.page_reset']) {
       expect(auditActionLabel(action), action).not.toBe(action)
     }
   })

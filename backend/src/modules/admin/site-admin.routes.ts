@@ -1,7 +1,7 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { forbidden, tooManyRequests, unauthorized } from '../../common/errors.js';
+import { forbidden, notFound, tooManyRequests, unauthorized } from '../../common/errors.js';
 import { ok } from '../../common/response.js';
 import { parseInput } from '../../common/validation.js';
 import type { AdminContext } from '../../database/repositories/catalog-admin.repository.js';
@@ -10,7 +10,8 @@ import { createAuthenticate } from '../auth/authenticate.js';
 import type { AuthService } from '../auth/auth.service.js';
 import { authorize } from '../authz/permissions.js';
 import { homeContentSchema } from '../site/home-content.js';
-import { HOME_KEY } from '../site/site.routes.js';
+import { isPageKey, pageSchemas } from '../site/page-content.js';
+import { HOME_KEY, pageParams } from '../site/site.routes.js';
 
 // `content: null` puts the built-in default back. `expectedVersion` is the version the editor
 // loaded (0 = nothing saved yet): a save from an out-of-date editor is a 409, never an overwrite.
@@ -18,6 +19,17 @@ const updateBody = z.strictObject({
   expectedVersion: z.number().int().min(0).max(1_000_000),
   content: homeContentSchema.nullable(),
 });
+
+// Same envelope for the information pages (ADR-0028), with the content shape of each page. There
+// `content: null` unpublishes the page.
+const pageUpdateBody = <T extends z.ZodType>(content: T) =>
+  z.strictObject({ expectedVersion: z.number().int().min(0).max(1_000_000), content: content.nullable() });
+const pageUpdateBodies = {
+  faq: pageUpdateBody(pageSchemas.faq),
+  contact: pageUpdateBody(pageSchemas.contact),
+  terms: pageUpdateBody(pageSchemas.terms),
+  privacy: pageUpdateBody(pageSchemas.privacy),
+} as const;
 
 /**
  * /admin/site/home: the home page content for platform staff (ADR-0027).
@@ -56,6 +68,26 @@ export function siteAdminRoutes(auth: AuthService, site: SiteSettingsRepository)
       const ctx = contextOf(request);
       const body = parseInput(updateBody, request.body);
       const row = await site.save(ctx, HOME_KEY, body.expectedVersion, body.content);
+      return ok({ content: row.content, version: row.version, updatedAt: row.updatedAt });
+    });
+
+    // The four information pages (ADR-0028): same rules as the home page, one body shape per page.
+    // The key is checked before the body, so a wrong key is a 404 and not a validation error.
+    app.get('/admin/site/pages/:key', async (request) => {
+      contextOf(request);
+      const { key } = parseInput(pageParams, request.params);
+      if (!isPageKey(key)) throw notFound();
+      const row = await site.get(key);
+      return ok({ content: row.content, version: row.version, updatedAt: row.updatedAt });
+    });
+
+    app.put('/admin/site/pages/:key', async (request) => {
+      const ctx = contextOf(request);
+      const { key } = parseInput(pageParams, request.params);
+      if (!isPageKey(key)) throw notFound();
+      const pageBody = pageUpdateBodies[key];
+      const body = parseInput(pageBody, request.body);
+      const row = await site.save(ctx, key, body.expectedVersion, body.content);
       return ok({ content: row.content, version: row.version, updatedAt: row.updatedAt });
     });
   };

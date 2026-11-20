@@ -42,7 +42,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     { href: '#/subscriptions', label: 'الاشتراكات', icon: <RepeatIcon />, current: known && route === 'subscriptions' },
     { href: '#/tenants', label: 'الشركات', icon: <BuildingIcon />, current: known && route === 'tenants' },
     { href: '#/audit', label: 'سجل التدقيق', icon: <ShieldIcon />, current: known && route === 'audit' },
-    { href: '#/site', label: 'الصفحة الرئيسية', icon: <ImageIcon />, current: known && route === 'site' },
+    { href: '#/site', label: 'محتوى الموقع', icon: <ImageIcon />, current: known && route === 'site' },
   ]
 
   return (

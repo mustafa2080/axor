@@ -13,6 +13,19 @@ describe('pageTitle', () => {
     expect(pageTitle('public', '#/trial')).toBe('التجربة المجانية | AXOR')
   })
 
+  it('names the staff site editor for the home page and for every information-page tab', () => {
+    for (const hash of ['#/site', '#/site?page=faq', '#/site?page=privacy']) {
+      expect(pageTitle('platform', hash), hash).toBe('محتوى الموقع | AXOR')
+    }
+  })
+
+  it('names the four information pages', () => {
+    expect(pageTitle('public', '#/faq')).toBe('الأسئلة الشائعة | AXOR')
+    expect(pageTitle('public', '#/contact')).toBe('تواصل معنا | AXOR')
+    expect(pageTitle('public', '#/terms')).toBe('الشروط والأحكام | AXOR')
+    expect(pageTitle('public', '#/privacy')).toBe('سياسة الخصوصية | AXOR')
+  })
+
   it('gives unknown links the 404 title in every area', () => {
     for (const area of ['public', 'company', 'platform'] as const) {
       expect(pageTitle(area, '#/nope'), area).toBe('الصفحة مش موجودة | AXOR')

@@ -173,9 +173,9 @@ export function readHomeContent(value: unknown): HomeContent {
   return ok ? (value as unknown as HomeContent) : DEFAULT_HOME
 }
 
-const hasControl = (text: string): boolean => [...text].some((ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127)
+export const hasControl = (text: string): boolean => [...text].some((ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127)
 
-function textProblem(label: string, value: string, max: number): string | null {
+export function textProblem(label: string, value: string, max: number): string | null {
   const text = value.trim()
   if (text === '') return `${label}: لازم تكتب حاجة.`
   if (text.length > max) return `${label}: أقصى طول ${max} حرف.`

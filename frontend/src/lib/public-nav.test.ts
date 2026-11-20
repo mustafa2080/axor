@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PUBLIC_ACCOUNT_LINKS, PUBLIC_NAV, isCurrentPublicLink } from './public-nav.ts'
+import { PUBLIC_ACCOUNT_LINKS, PUBLIC_INFO_LINKS, PUBLIC_NAV, isCurrentPublicLink } from './public-nav.ts'
 import { isKnownPublicHash } from './routes.ts'
 
 describe('isCurrentPublicLink', () => {
@@ -21,14 +21,19 @@ describe('isCurrentPublicLink', () => {
 
 describe('public links', () => {
   it('only point at pages that exist, so a link can never lead to a 404', () => {
-    for (const link of [...PUBLIC_NAV, ...PUBLIC_ACCOUNT_LINKS]) {
+    for (const link of [...PUBLIC_NAV, ...PUBLIC_INFO_LINKS, ...PUBLIC_ACCOUNT_LINKS]) {
       expect(isKnownPublicHash(link.href)).toBe(true)
     }
   })
 
   it('has unique hrefs and non-empty labels', () => {
-    const all = [...PUBLIC_NAV, ...PUBLIC_ACCOUNT_LINKS]
+    const all = [...PUBLIC_NAV, ...PUBLIC_INFO_LINKS, ...PUBLIC_ACCOUNT_LINKS]
     expect(new Set(all.map((link) => link.href)).size).toBe(all.length)
     for (const link of all) expect(link.label.trim()).not.toBe('')
+  })
+
+  it('lists the four information pages in the footer', () => {
+    const hrefs = PUBLIC_INFO_LINKS.map((link) => link.href)
+    for (const href of ['#/faq', '#/contact', '#/terms', '#/privacy']) expect(hrefs).toContain(href)
   })
 })

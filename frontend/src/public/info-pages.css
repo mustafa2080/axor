@@ -1,0 +1,232 @@
+/* ---------- صفحات المعلومات: الأسئلة الشائعة، تواصل، الشروط، الخصوصية (ADR-0028) ---------- */
+/*
+ * بتعيد استخدام مشهد ADR-0024 (.scene) من غير ما تغيّر فيه. نفس القواعد: مفيش rotateY (اتجاه العربي،
+ * ADR-0021 بند 5)، الحركة كلها جوه prefers-reduced-motion: no-preference، ومفيش inline style (CSP).
+ * المجسم زخرفة (aria-hidden)، فمفيش معلومة بتعدّي من خلاله.
+ */
+.info {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 3vw, 2rem) 2rem;
+}
+.info-preview {
+  padding-block: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+/* الهيرو: النص وبجنبه المجسم (عمود واحد على الموبايل). */
+.info-hero {
+  display: grid;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block-end: clamp(1.25rem, 4vw, 2.25rem);
+  padding: clamp(1rem, 3vw, 1.75rem) clamp(1rem, 3vw, 2rem);
+  border-radius: var(--radius-xl);
+  background: radial-gradient(120% 90% at 88% 6%, var(--accent-soft), transparent 64%);
+}
+.info-hero-text {
+  display: grid;
+  gap: 0.6rem;
+  align-content: center;
+}
+.info-hero h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  line-height: 1.3;
+}
+.info-hero-text p {
+  margin: 0;
+  max-inline-size: 52ch;
+  line-height: 1.8;
+}
+.info-scene.scene {
+  block-size: clamp(150px, 30vw, 210px);
+}
+.info-scene .scene-stage {
+  --size: clamp(96px, 21vw, 150px);
+  --gap: clamp(20px, 4.5vw, 34px);
+}
+@media (min-width: 760px) {
+  .info-hero {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: clamp(1rem, 3vw, 2rem);
+  }
+  .info-scene.scene {
+    block-size: clamp(220px, 26vw, 290px);
+  }
+  .info-scene .scene-stage {
+    --size: clamp(130px, 16vw, 180px);
+    --gap: clamp(26px, 3.2vw, 40px);
+  }
+}
+/* العلامة محفورة على اللوح العلوي: بتلف معاه، وبتنزل شوية جوه اللوح عشان تبان محفورة مش لاصقة. */
+.info-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent-text);
+  font-size: clamp(2.4rem, 7vw, 4.2rem);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 0.22);
+  transform: translateZ(1px);
+}
+.info-glyph svg {
+  inline-size: 1em;
+  block-size: 1em;
+}
+
+/* القوائم والكروت. */
+.info-list {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.info-card {
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border), 0 10px 24px -16px rgb(10 14 22 / 0.35);
+}
+.info-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+.info-body {
+  display: grid;
+  gap: 0.75rem;
+}
+.info-body p {
+  margin: 0;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.info-empty {
+  margin: 0;
+  text-align: center;
+  line-height: 1.9;
+}
+.info-link {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* الأسئلة: أكورديون native (details)، من غير JS. */
+.faq-item {
+  padding: 0;
+}
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(0.9rem, 2.5vw, 1.2rem) clamp(1rem, 2.5vw, 1.4rem);
+  border-radius: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1.6;
+  list-style: none;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item summary::after {
+  content: '';
+  flex: none;
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  border-inline-end: 2px solid var(--accent-strong);
+  border-block-end: 2px solid var(--accent-strong);
+  transform: rotate(45deg);
+}
+.faq-item summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.faq-item[open] summary {
+  color: var(--accent-strong);
+}
+.faq-item[open] summary::after {
+  transform: rotate(-135deg);
+}
+.faq-item .info-body {
+  padding: 0 clamp(1rem, 2.5vw, 1.4rem) clamp(1rem, 2.5vw, 1.3rem);
+}
+
+/* تواصل معنا. */
+.contact-mail {
+  display: inline-block;
+  color: var(--accent-strong);
+  font-size: 1.15rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.contact-card p {
+  margin: 0;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .info-list:has(.contact-card) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* الشروط والخصوصية: أقسام مرقّمة. */
+.legal-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.info-no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* حركة الكروت: رفعة وميلة على المحور الأفقي بس (مفيش rotateY). */
+@media (prefers-reduced-motion: no-preference) {
+  .info-list {
+    perspective: 900px;
+  }
+  .info-card {
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .info-card:hover {
+    transform: translateY(-3px) rotateX(2deg);
+    box-shadow: 0 1px 0 var(--border), 0 18px 30px -16px rgb(10 14 22 / 0.45);
+  }
+  .info-hero-text,
+  .info-list > li {
+    animation: info-in 0.5s ease both;
+  }
+  .info-list > li:nth-child(2) {
+    animation-delay: 0.04s;
+  }
+  .info-list > li:nth-child(3) {
+    animation-delay: 0.08s;
+  }
+  .info-list > li:nth-child(n + 4) {
+    animation-delay: 0.12s;
+  }
+}
+@keyframes info-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}

@@ -10,6 +10,10 @@ const PUBLIC = new Set([
   '#/systems',
   '#/system',
   '#/trial',
+  '#/faq',
+  '#/contact',
+  '#/terms',
+  '#/privacy',
 ])
 const COMPANY = new Set(['#/start', '#/members'])
 const PLATFORM = new Set(['#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit', '#/site'])
@@ -32,9 +36,14 @@ export type PublicRoute =
   | 'systems'
   | 'system'
   | 'trial'
+  | 'faq'
+  | 'contact'
+  | 'terms'
+  | 'privacy'
 
 // مسار الـ hash ← الصفحة. `#/system` بياخد الكود من الـ query (`?code=`) لأن الراوتر مطابقة تامة على مسارات ثابتة.
-// الأسئلة الشائعة والتواصل والشروط والخصوصية مش هنا لحد ما نصوصها تتحدد وتتعتمد (docs/designs/public-pages.md §9).
+// الأسئلة الشائعة والتواصل والشروط والخصوصية نصوصها بتتكتب من لوحة الإدارة (ADR-0028): الصفحة موجودة،
+// ولو ما اتنشرتش بتقول كده بدل ما تعرض نص مخترع.
 const PUBLIC_ROUTES: Readonly<Record<string, PublicRoute>> = {
   '#/login': 'login',
   '#/register': 'register',
@@ -42,6 +51,10 @@ const PUBLIC_ROUTES: Readonly<Record<string, PublicRoute>> = {
   '#/systems': 'systems',
   '#/system': 'system',
   '#/trial': 'trial',
+  '#/faq': 'faq',
+  '#/contact': 'contact',
+  '#/terms': 'terms',
+  '#/privacy': 'privacy',
 }
 
 /**

@@ -95,6 +95,8 @@ const BOUNDED_BY_DESIGN = new Set([
   'get /subscriptions', // unique (company, product): at most one row per product
   'get /site/home', // one row: the home page content (ADR-0027)
   'get /admin/site/home', // the same single row, for the editor
+  'get /site/pages/:key', // one row of four known pages: faq, contact, terms, privacy (ADR-0028)
+  'get /admin/site/pages/:key', // the same single row, for the editor
 ]);
 
 // Known gaps, on purpose in a separate list: the test fails when one is fixed, so it gets removed.

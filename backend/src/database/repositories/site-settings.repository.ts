@@ -23,6 +23,15 @@ const contentChanged = () =>
   );
 
 /**
+ * The audit action for a save. The home page keeps its original names (ADR-0027); every information
+ * page (ADR-0028) uses one pair of names, and the page is in the event's `setting` and `targetId`.
+ */
+function auditAction(key: string, reset: boolean): string {
+  if (key === 'home') return reset ? 'site.home_reset' : 'site.home_updated';
+  return reset ? 'site.page_reset' : 'site.page_updated';
+}
+
+/**
  * Site settings the platform staff edit from the dashboard (ADR-0027). The repository does not
  * know the shape of the content: the route validates it before it gets here, so what is stored is
  * always valid. A save is one transaction: the row is locked, the version the editor started from
@@ -84,7 +93,7 @@ export function createSiteSettingsRepository(db: Database['db']) {
             id: uuidv7(),
             actorUserId: ctx.actorUserId,
             tenantId: null,
-            action: content === null ? 'site.home_reset' : 'site.home_updated',
+            action: auditAction(key, content === null),
             targetType: 'site_setting',
             targetId: key,
             metadata,

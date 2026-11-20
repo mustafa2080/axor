@@ -15,8 +15,14 @@ export const PUBLIC_NAV: readonly PublicLink[] = [
   { href: '#/plans', label: 'الباقات' },
 ]
 
-/** روابط المعلومات (الـ footer). الأسئلة والتواصل والشروط والخصوصية بتتضاف لما صفحاتها تتبني وتتعتمد. */
-export const PUBLIC_INFO_LINKS: readonly PublicLink[] = [{ href: '#/trial', label: 'شروط التجربة المجانية' }]
+/** روابط المعلومات (الـ footer). نصوص الأربع صفحات الأولى بتتكتب من لوحة الإدارة (ADR-0028). */
+export const PUBLIC_INFO_LINKS: readonly PublicLink[] = [
+  { href: '#/faq', label: 'الأسئلة الشائعة' },
+  { href: '#/contact', label: 'تواصل معنا' },
+  { href: '#/terms', label: 'الشروط والأحكام' },
+  { href: '#/privacy', label: 'سياسة الخصوصية' },
+  { href: '#/trial', label: 'شروط التجربة المجانية' },
+]
 
 export const PUBLIC_ACCOUNT_LINKS: readonly PublicLink[] = [
   { href: '#/login', label: 'دخول' },

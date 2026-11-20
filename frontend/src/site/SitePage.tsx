@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
 import { ApiError } from '../api/client.ts'
 import { getAdminHome, saveAdminHome } from '../api/site.ts'
 import type { HomeSetting } from '../api/site.ts'
@@ -7,53 +6,19 @@ import { ErrorNote, Field, Loading, Modal } from '../components/ui.tsx'
 import { MAX, POINT_ICONS, homeContentProblem, pointIconLabel, readHomeContent, trimHomeContent } from '../lib/home-content.ts'
 import type { HomeContent, PointIcon } from '../lib/home-content.ts'
 import { errorMessage } from '../lib/labels.ts'
+import { PAGE_KEYS, PAGE_LABELS, sitePageOf } from '../lib/page-content.ts'
+import { useHash } from '../lib/useRoute.ts'
 import { useSubmit } from '../lib/useSubmit.ts'
 import { HomeView } from '../public/HomePage.tsx'
+import { PageEditor } from './PageEditors.tsx'
+import { removeAt, replaceAt } from './list-edit.ts'
+import { Row, Section, Text } from './site-fields.tsx'
 import './site-editor.css'
 
 type State =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; version: number; content: HomeContent; saved: boolean }
-
-const replaceAt = <T,>(list: readonly T[], index: number, item: T): T[] => list.map((x, i) => (i === index ? item : x))
-const removeAt = <T,>(list: readonly T[], index: number): T[] => list.filter((_, i) => i !== index)
-
-function Text({ label, value, max, onChange, long = false }: { label: string; value: string; max: number; onChange: (v: string) => void; long?: boolean }) {
-  return (
-    <Field label={label} hint={`${value.length} / ${max}`}>
-      {long ? (
-        <textarea rows={3} value={value} maxLength={max} onChange={(e) => onChange(e.target.value)} />
-      ) : (
-        <input type="text" value={value} maxLength={max} onChange={(e) => onChange(e.target.value)} />
-      )}
-    </Field>
-  )
-}
-
-function Row({ title, onRemove, children }: { title: string; onRemove: () => void; children: ReactNode }) {
-  return (
-    <div className="site-row">
-      <div className="site-row-head">
-        <strong>{title}</strong>
-        <button type="button" className="btn btn-small" onClick={onRemove}>
-          حذف
-        </button>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <article className="card site-section">
-      <h2>{title}</h2>
-      {hint === undefined ? null : <p className="muted">{hint}</p>}
-      {children}
-    </article>
-  )
-}
 
 const IMAGE_HINT = 'رابط صورة https من images.unsplash.com أو images.pexels.com بس.'
 
@@ -242,7 +207,7 @@ function Editor({
 }
 
 /** تحرير الصفحة الرئيسية لموظفي المنصة: نصوص وصور والمجسم 3D، مع معاينة حيّة (ADR-0027). */
-export function SitePage() {
+function HomeSite() {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
 
@@ -290,5 +255,30 @@ export function SitePage() {
         onReload={reload}
       />
     </section>
+  )
+}
+
+/**
+ * محتوى الموقع العام لموظفي المنصة: الصفحة الرئيسية (ADR-0027) وصفحات المعلومات الأربع (ADR-0028) في تابات.
+ * التاب في الـ hash (`#/site?page=faq`) فالرابط بيتشارك وزر الرجوع بيشتغل. تغيير التاب بيفتح محرر جديد،
+ * فأي تعديل ما اتحفظش في التاب القديم بيضيع.
+ */
+export function SitePage() {
+  const hash = useHash()
+  const page = sitePageOf(hash)
+  return (
+    <>
+      <nav className="site-tabs" aria-label="صفحات الموقع">
+        <a href="#/site" aria-current={page === null ? 'page' : undefined}>
+          الرئيسية
+        </a>
+        {PAGE_KEYS.map((key) => (
+          <a key={key} href={`#/site?page=${key}`} aria-current={page === key ? 'page' : undefined}>
+            {PAGE_LABELS[key]}
+          </a>
+        ))}
+      </nav>
+      {page === null ? <HomeSite /> : <PageEditor key={page} pageKey={page} />}
+    </>
   )
 }

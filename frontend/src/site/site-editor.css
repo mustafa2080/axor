@@ -34,3 +34,33 @@
 .site-preview-title {
   margin-block: 1.5rem 0.25rem;
 }
+
+/* تابات محرر الموقع (ADR-0028): الرئيسية + صفحات المعلومات. */
+.site-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-block-end: 1rem;
+  padding-block-end: 0.75rem;
+  border-block-end: 1px solid var(--border);
+}
+.site-tabs a {
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-tabs a:hover {
+  border-color: var(--border-strong);
+}
+.site-tabs a[aria-current='page'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.site-tabs a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

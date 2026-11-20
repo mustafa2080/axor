@@ -1,10 +1,16 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
-import { tooManyRequests } from '../../common/errors.js';
+import { z } from 'zod';
+import { notFound, tooManyRequests } from '../../common/errors.js';
 import { ok } from '../../common/response.js';
+import { parseInput } from '../../common/validation.js';
 import type { SiteSettingsRepository } from '../../database/repositories/site-settings.repository.js';
+import { isPageKey } from './page-content.js';
 
 export const HOME_KEY = 'home';
+
+/** `/site/pages/:key`: the key is checked against the four known pages before anything is read. */
+export const pageParams = z.strictObject({ key: z.string().min(1).max(50) });
 
 /**
  * Public, read-only: the editable content of the home page (ADR-0027).
@@ -28,6 +34,15 @@ export function siteRoutes(site: SiteSettingsRepository) {
 
     app.get('/site/home', async () => {
       const row = await site.get(HOME_KEY);
+      return ok({ content: row.content, version: row.version });
+    });
+
+    // The four information pages (ADR-0028). `content: null` = not published yet: the web app says so
+    // instead of showing text nobody approved. Any other key is a 404, never a read of another row.
+    app.get('/site/pages/:key', async (request) => {
+      const { key } = parseInput(pageParams, request.params);
+      if (!isPageKey(key)) throw notFound();
+      const row = await site.get(key);
       return ok({ content: row.content, version: row.version });
     });
   };

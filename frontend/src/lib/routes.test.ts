@@ -21,6 +21,14 @@ describe('publicRouteOf', () => {
     expect(publicRouteOf('#/plans?product=sys&view=compare')).toBe('plans')
   })
 
+  it('maps the information pages (ADR-0028)', () => {
+    expect(publicRouteOf('#/faq')).toBe('faq')
+    expect(publicRouteOf('#/contact')).toBe('contact')
+    expect(publicRouteOf('#/terms')).toBe('terms')
+    expect(publicRouteOf('#/privacy')).toBe('privacy')
+    expect(publicRouteOf('#/faq?from=footer')).toBe('faq')
+  })
+
   it('does not read inherited object keys as routes', () => {
     for (const hash of ['#/constructor', '#/__proto__', '#/toString']) expect(publicRouteOf(hash), hash).toBe('home')
   })
@@ -42,8 +50,14 @@ describe('isKnownPublicHash', () => {
     }
   })
 
-  it('does not accept the pages that are not built yet', () => {
-    for (const hash of ['#/faq', '#/contact', '#/terms', '#/privacy', '#/system/sys', '#/systems/x']) {
+  it('accepts the four information pages, with or without a query', () => {
+    for (const hash of ['#/faq', '#/contact', '#/terms', '#/privacy', '#/faq?from=footer']) {
+      expect(isKnownPublicHash(hash), hash).toBe(true)
+    }
+  })
+
+  it('does not accept look-alike or deeper links', () => {
+    for (const hash of ['#/faqs', '#/FAQ', '#/faq/x', '#/contact-us', '#/system/sys', '#/systems/x']) {
       expect(isKnownPublicHash(hash), hash).toBe(false)
     }
   })

@@ -14,6 +14,7 @@ import { isKnownPublicHash } from './lib/routes.ts'
 import type { PublicRoute } from './lib/routes.ts'
 import { useHash, usePublicRoute } from './lib/useRoute.ts'
 import { HomePage } from './public/HomePage.tsx'
+import { InfoPage } from './public/InfoPages.tsx'
 import { PlansPage } from './public/PlansPage.tsx'
 import { SystemPage } from './public/SystemPage.tsx'
 import { SystemsPage } from './public/SystemsPage.tsx'
@@ -50,6 +51,11 @@ function PublicPage({ route }: { route: PublicRoute }) {
       return <LoginPage />
     case 'home':
       return <HomePage />
+    case 'faq':
+    case 'contact':
+    case 'terms':
+    case 'privacy':
+      return <InfoPage pageKey={route} />
   }
 }
 
