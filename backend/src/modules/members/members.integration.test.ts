@@ -568,6 +568,45 @@ describe('plan user limit on re-enabling', () => {
     expect((await enableAs(extra1)).statusCode).toBe(200);
   });
 
+  it('enforces the limit of the version a subscription is pinned to, not the one the plan moved on to', async () => {
+    await subscribe({ users: 5 });
+    const [sub] = await db.select().from(schema.subscriptions);
+    const [oldVersion] = await db
+      .select()
+      .from(schema.planVersions)
+      .where(eq(schema.planVersions.planId, sub!.planId));
+    const newerId = uuidv7();
+    await db.insert(schema.planVersions).values({
+      id: newerId,
+      planId: sub!.planId,
+      version: 2,
+      priceMinor: 59900,
+      currency: 'EGP',
+      billingPeriod: 'monthly',
+      trialDays: 14,
+      limits: { users: 50 },
+      features: {},
+    });
+    await db
+      .update(schema.plans)
+      .set({ currentVersionId: newerId })
+      .where(eq(schema.plans.id, sub!.planId));
+
+    // Not pinned: the subscription follows the plan to its new, bigger limit.
+    expect((await enableAs(extra1)).statusCode).toBe(200);
+    await setStatus(extra1, 'disabled');
+
+    // Pinned by staff to the old version: that version's smaller limit is the one that counts.
+    await db
+      .update(schema.subscriptions)
+      .set({ pinnedPlanVersionId: oldVersion!.id })
+      .where(eq(schema.subscriptions.id, sub!.id));
+    const res = await enableAs(extra1);
+    expect(res.statusCode).toBe(409);
+    expect(res.json<{ error: { code: string } }>().error.code).toBe('PLAN_LIMIT_REACHED');
+    expect(await statusOf(extra1)).toBe('disabled');
+  });
+
   it('takes the most generous entitled plan when the company has several', async () => {
     await subscribe({ users: 5 }, { code: 'small' });
     await subscribe({ users: 6 }, { code: 'big' });
