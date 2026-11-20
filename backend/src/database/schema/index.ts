@@ -7,6 +7,7 @@ export * from './plan-versions.js';
 export * from './plans.js';
 export * from './products.js';
 export * from './refresh-sessions.js';
+export * from './site-settings.js';
 export * from './subscription-events.js';
 export * from './subscriptions.js';
 export * from './tenants.js';

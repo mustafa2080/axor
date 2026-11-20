@@ -17,8 +17,16 @@ if (meta === null) {
   for (const directive of required) {
     if (!policy.includes(directive)) problems.push(`policy is missing ${directive}`)
   }
-  if (/unsafe-|\*|https?:/.test(policy)) {
-    problems.push('policy allows unsafe-*, a wildcard or a remote origin')
+  // Remote origins are allowed in img-src only (home page photos picked from the dashboard,
+  // ADR-0027), and only as exact https hosts. csp.test.ts checks the host list itself.
+  if (/unsafe-|\*/.test(policy)) problems.push('policy allows unsafe-* or a wildcard')
+  for (const directive of policy.split('; ')) {
+    const [name, ...sources] = directive.split(' ')
+    for (const source of sources) {
+      if (!/^https?:|\/\//.test(source)) continue
+      if (name !== 'img-src') problems.push(`${name} allows a remote origin: ${source}`)
+      else if (!/^https:\/\/[a-z0-9.-]+$/.test(source)) problems.push(`img-src allows ${source}`)
+    }
   }
 }
 

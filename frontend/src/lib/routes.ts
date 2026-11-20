@@ -12,7 +12,7 @@ const PUBLIC = new Set([
   '#/trial',
 ])
 const COMPANY = new Set(['#/start', '#/members'])
-const PLATFORM = new Set(['#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit'])
+const PLATFORM = new Set(['#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit', '#/site'])
 
 /** المسار من غير الـ query: '#/register?plan=x' ← '#/register'. */
 export function hashPath(hash: string): string {

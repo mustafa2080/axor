@@ -7,6 +7,7 @@ import { createCatalogRepository } from './database/repositories/catalog.reposit
 import { createIdempotencyKeysRepository } from './database/repositories/idempotency-keys.repository.js';
 import { createMembersRepository } from './database/repositories/members.repository.js';
 import { createRefreshSessionsRepository } from './database/repositories/refresh-sessions.repository.js';
+import { createSiteSettingsRepository } from './database/repositories/site-settings.repository.js';
 import { createSubscriptionsRepository } from './database/repositories/subscriptions.repository.js';
 import { createTenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
 import { createAccessTokenService } from './modules/auth/access-token.js';
@@ -47,6 +48,7 @@ const app = buildApp(env, {
   auditAdmin: createAuditAdminRepository(database.db),
   members: createMembersRepository(database.db),
   tenantsAdmin: createTenantsAdminRepository(database.db),
+  site: createSiteSettingsRepository(database.db),
 });
 
 // Makes the stored status catch up with end dates (ADR-0007). Access itself never waits for it.

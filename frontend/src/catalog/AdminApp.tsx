@@ -5,10 +5,11 @@ import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
 import { ErrorNote, Loading } from '../components/ui.tsx'
 import { AppShell } from '../components/AppShell.tsx'
 import type { NavItem } from '../components/AppShell.tsx'
-import { BoxIcon, BuildingIcon, LayersIcon, RepeatIcon, ShieldIcon } from '../components/icons.tsx'
+import { BoxIcon, BuildingIcon, ImageIcon, LayersIcon, RepeatIcon, ShieldIcon } from '../components/icons.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
+import { SitePage } from '../site/SitePage.tsx'
 import { SubscriptionsPage } from '../subscriptions/SubscriptionsPage.tsx'
 import { TenantsPage } from '../tenants/TenantsPage.tsx'
 import { ProductsPage } from './ProductsPage.tsx'
@@ -41,6 +42,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     { href: '#/subscriptions', label: 'الاشتراكات', icon: <RepeatIcon />, current: known && route === 'subscriptions' },
     { href: '#/tenants', label: 'الشركات', icon: <BuildingIcon />, current: known && route === 'tenants' },
     { href: '#/audit', label: 'سجل التدقيق', icon: <ShieldIcon />, current: known && route === 'audit' },
+    { href: '#/site', label: 'الصفحة الرئيسية', icon: <ImageIcon />, current: known && route === 'site' },
   ]
 
   return (
@@ -54,6 +56,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
         {known && route === 'tenants' ? <TenantsPage /> : null}
         {known && route === 'audit' ? <AuditPage /> : null}
+        {known && route === 'site' ? <SitePage /> : null}
         {known && catalogRoute && state.status === 'loading' ? <Loading /> : null}
         {known && catalogRoute && state.status === 'error' ? (
           <>

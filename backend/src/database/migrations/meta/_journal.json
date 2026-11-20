@@ -50,6 +50,13 @@
       "when": 1794065411705,
       "tag": "0006_idempotency_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1795139779786,
+      "tag": "0007_site_settings",
+      "breakpoints": true
     }
   ]
 }

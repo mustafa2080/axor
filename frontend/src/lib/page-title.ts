@@ -29,6 +29,7 @@ const PLATFORM: Readonly<Record<string, string>> = {
   '#/subscriptions': 'الاشتراكات',
   '#/tenants': 'الشركات',
   '#/audit': 'سجل التدقيق',
+  '#/site': 'الصفحة الرئيسية',
 }
 
 function withBrand(page: string): string {

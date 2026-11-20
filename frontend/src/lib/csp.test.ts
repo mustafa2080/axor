@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildCsp, buildCspHeader } from './csp.ts'
+import { IMAGE_HOSTS } from './home-content.ts'
 
 // Two things keep the strict policy in csp.ts honest (ADR-0014): the policy itself must stay strict,
 // and the source must never need anything it forbids (inline style, inline script, raw HTML).
@@ -40,8 +41,29 @@ describe('Content Security Policy', () => {
     expect(directives.get('base-uri')).toEqual(["'none'"])
   })
 
-  it('never allows unsafe-inline, unsafe-eval, wildcards or remote origins', () => {
-    expect(buildCspHeader()).not.toMatch(/unsafe-|\*|https?:|\/\//)
+  it('never allows unsafe-inline, unsafe-eval, wildcards or remote origins outside img-src', () => {
+    for (const [name, sources] of directives) {
+      if (name === 'img-src') continue
+      expect(sources.join(' '), name).not.toMatch(/unsafe-|\*|https?:|\/\//)
+    }
+    expect(buildCspHeader()).not.toMatch(/unsafe-|\*/)
+  })
+
+  it('lets img-src load only https images from the fixed host list, and nothing else remote', () => {
+    const remote = (directives.get('img-src') ?? []).filter((source) => source !== "'self'" && source !== 'data:')
+    expect(remote).toEqual(IMAGE_HOSTS.map((host) => `https://${host}`))
+    for (const source of remote) expect(source).toMatch(/^https:\/\/[a-z0-9.-]+$/)
+  })
+
+  it('uses the same image hosts as the API, which checks them when content is saved', () => {
+    const backend = readFileSync(
+      path.resolve(appDir, '../backend/src/modules/site/home-content.ts'),
+      'utf8',
+    )
+    const list = backend.match(/IMAGE_HOSTS\s*=\s*\[([^\]]*)\]/)?.[1] ?? ''
+    const hosts = [...list.matchAll(/'([^']+)'/g)].map((match) => match[1])
+    expect(hosts.length).toBeGreaterThan(0)
+    expect(hosts).toEqual([...IMAGE_HOSTS])
   })
 
   it('keeps frame-ancestors only in the header form, where it works', () => {

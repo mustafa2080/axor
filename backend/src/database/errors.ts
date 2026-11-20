@@ -23,6 +23,14 @@ export function isDuplicateEntry(error: unknown): boolean {
 }
 
 /**
+ * MariaDB picked this transaction as the deadlock victim (1213, ER_LOCK_DEADLOCK) and rolled it
+ * back, so nothing was written. Two first saves of the same row at once end up here.
+ */
+export function isDeadlock(error: unknown): boolean {
+  return anyInCauseChain(error, (c) => c.code === 'ER_LOCK_DEADLOCK' || c.errno === 1213);
+}
+
+/**
  * The database could not take the work right now (ADR-0019): the connection queue is full, or a
  * statement ran past `max_statement_time` (errno 1969). Both leave nothing half-done (a queued
  * request never reached the database, and a killed statement rolls its transaction back), so the

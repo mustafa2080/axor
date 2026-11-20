@@ -27,6 +27,8 @@ export const platformPermissions = [
   'platform:subscriptions:manage',
   'platform:users:read',
   'platform:audit:read',
+  /** Editing the public home page content (ADR-0027). */
+  'platform:site:manage',
   /** Entering a company's data is an explicit, audited administrative action (ADR-0003 §4). */
   'platform:tenant-data:access',
 ] as const;
@@ -60,6 +62,7 @@ const platformRoleGrants: Record<PlatformRole, readonly PlatformPermission[]> = 
     'platform:subscriptions:manage',
     'platform:users:read',
     'platform:audit:read',
+    'platform:site:manage',
     'platform:tenant-data:access',
   ],
   support: ['platform:tenants:read', 'platform:subscriptions:read', 'platform:users:read'],

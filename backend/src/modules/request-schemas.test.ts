@@ -93,6 +93,8 @@ const BOUNDED_BY_DESIGN = new Set([
   'get /catalog/products', // the public catalog the platform itself manages
   'get /catalog/products/:productCode/plans', // plans of one product, managed by the platform
   'get /subscriptions', // unique (company, product): at most one row per product
+  'get /site/home', // one row: the home page content (ADR-0027)
+  'get /admin/site/home', // the same single row, for the editor
 ]);
 
 // Known gaps, on purpose in a separate list: the test fails when one is fixed, so it gets removed.

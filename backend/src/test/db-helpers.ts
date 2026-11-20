@@ -5,6 +5,7 @@ import type { Database } from '../database/client.js';
 export const DOMAIN_TABLES = [
   'audit_logs',
   'idempotency_keys',
+  'site_settings',
   'trial_claims',
   'subscription_events',
   'subscriptions',

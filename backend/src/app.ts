@@ -25,6 +25,9 @@ import type { MembersRepository } from './database/repositories/members.reposito
 import { membersRoutes } from './modules/members/members.routes.js';
 import type { TenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
 import { tenantsAdminRoutes } from './modules/admin/tenants-admin.routes.js';
+import type { SiteSettingsRepository } from './database/repositories/site-settings.repository.js';
+import { siteAdminRoutes } from './modules/admin/site-admin.routes.js';
+import { siteRoutes } from './modules/site/site.routes.js';
 import type { Idempotency } from './modules/idempotency/idempotency.js';
 
 export type AppDeps = HealthDeps & {
@@ -41,6 +44,8 @@ export type AppDeps = HealthDeps & {
   members?: MembersRepository;
   /** Companies for platform staff (list, suspend, reactivate). Needs `auth` too. */
   tenantsAdmin?: TenantsAdminRepository;
+  /** Editable site content: public read, and staff edit (needs `auth` for the admin routes). */
+  site?: SiteSettingsRepository;
   /**
    * `Idempotency-Key` support for the admin writes that are not repeatable (ADR-0026). Optional:
    * without it those routes behave as before and the header is ignored.
@@ -269,6 +274,12 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   }
   if (deps.catalog !== undefined) {
     void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });
+  }
+  if (deps.site !== undefined) {
+    void app.register(siteRoutes(deps.site), { prefix: '/api/v1' });
+    if (deps.auth !== undefined) {
+      void app.register(siteAdminRoutes(deps.auth, deps.site), { prefix: '/api/v1' });
+    }
   }
 
   return app;

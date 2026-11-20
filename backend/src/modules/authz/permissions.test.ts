@@ -60,6 +60,7 @@ const expectedPlatform: Record<PlatformPrincipal['role'], readonly Permission[]>
     'platform:subscriptions:manage',
     'platform:users:read',
     'platform:audit:read',
+    'platform:site:manage',
     'platform:tenant-data:access',
   ],
   admin: [
@@ -70,6 +71,7 @@ const expectedPlatform: Record<PlatformPrincipal['role'], readonly Permission[]>
     'platform:subscriptions:manage',
     'platform:users:read',
     'platform:audit:read',
+    'platform:site:manage',
     'platform:tenant-data:access',
   ],
   support: ['platform:tenants:read', 'platform:subscriptions:read', 'platform:users:read'],

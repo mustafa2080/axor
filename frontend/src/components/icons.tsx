@@ -75,6 +75,13 @@ export const ShieldIcon = () => (
     <path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6l8-3zM9 12l2 2 4-4" />
   </Icon>
 )
+export const ImageIcon = () => (
+  <Icon>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="M21 16l-5-5-8 9" />
+  </Icon>
+)
 export const PlayIcon = () => (
   <Icon>
     <circle cx="12" cy="12" r="9" />

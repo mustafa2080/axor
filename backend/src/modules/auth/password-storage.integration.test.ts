@@ -28,6 +28,7 @@ const HASH_SHAPE = /^\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/]+\$[A-Za-z0
 const TABLES: Record<(typeof DOMAIN_TABLES)[number], MySqlTable> = {
   audit_logs: schema.auditLogs,
   idempotency_keys: schema.idempotencyKeys,
+  site_settings: schema.siteSettings,
   trial_claims: schema.trialClaims,
   subscription_events: schema.subscriptionEvents,
   subscriptions: schema.subscriptions,
