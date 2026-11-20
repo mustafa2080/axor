@@ -23,8 +23,14 @@ export function isAllowedImageUrl(value: string): boolean {
 }
 
 // No control characters (including line breaks): every field here is one line of display text.
-const noControl = /^[^\u0000-\u001f\u007f]*$/;
-const line = (max: number) => z.string().trim().min(1).max(max).regex(noControl, 'No control characters');
+const hasNoControl = (text: string): boolean => {
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return false;
+  }
+  return true;
+};
+const line = (max: number) => z.string().trim().min(1).max(max).refine(hasNoControl, 'No control characters');
 const imageUrl = z
   .string()
   .max(500)

@@ -27,6 +27,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'catalog.plan_created': 'إنشاء باقة',
   'catalog.plan_version_created': 'إصدار جديد للباقة',
   'catalog.plan_updated': 'تعديل باقة',
+  'site.home_updated': 'تعديل الصفحة الرئيسية',
+  'site.home_reset': 'استرجاع الصفحة الرئيسية للافتراضي',
 }
 
 export const AUDIT_ACTIONS = Object.keys(AUDIT_ACTION_LABELS)

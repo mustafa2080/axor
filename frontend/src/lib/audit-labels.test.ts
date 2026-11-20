@@ -13,6 +13,12 @@ describe('auditActionLabel', () => {
     }
   })
 
+  it('translates the home-page content events', () => {
+    for (const action of ['site.home_updated', 'site.home_reset']) {
+      expect(auditActionLabel(action), action).not.toBe(action)
+    }
+  })
+
   it('shows an unknown action by its code, so no event is hidden', () => {
     expect(auditActionLabel('billing.refunded')).toBe('billing.refunded')
   })
