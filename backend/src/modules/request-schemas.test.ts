@@ -93,6 +93,7 @@ const BOUNDED_BY_DESIGN = new Set([
   'get /catalog/products', // the public catalog the platform itself manages
   'get /catalog/products/:productCode/plans', // plans of one product, managed by the platform
   'get /subscriptions', // unique (company, product): at most one row per product
+  'get /admin/overview', // fixed-size aggregate: a handful of counters, no rows (TASKS.md §5.4)
   'get /site/home', // one row: the home page content (ADR-0027)
   'get /admin/site/home', // the same single row, for the editor
   'get /site/pages/:key', // one row of four known pages: faq, contact, terms, privacy (ADR-0028)

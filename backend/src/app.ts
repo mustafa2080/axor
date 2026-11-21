@@ -25,6 +25,8 @@ import type { MembersRepository } from './database/repositories/members.reposito
 import { membersRoutes } from './modules/members/members.routes.js';
 import type { TenantsAdminRepository } from './database/repositories/tenants-admin.repository.js';
 import { tenantsAdminRoutes } from './modules/admin/tenants-admin.routes.js';
+import type { OverviewAdminRepository } from './database/repositories/overview-admin.repository.js';
+import { overviewAdminRoutes } from './modules/admin/overview-admin.routes.js';
 import type { SiteSettingsRepository } from './database/repositories/site-settings.repository.js';
 import { siteAdminRoutes } from './modules/admin/site-admin.routes.js';
 import { siteRoutes } from './modules/site/site.routes.js';
@@ -44,6 +46,8 @@ export type AppDeps = HealthDeps & {
   members?: MembersRepository;
   /** Companies for platform staff (list, suspend, reactivate). Needs `auth` too. */
   tenantsAdmin?: TenantsAdminRepository;
+  /** Platform-wide counts for the admin home (companies, subscriptions, trials). Needs `auth` too. */
+  overviewAdmin?: OverviewAdminRepository;
   /** Editable site content: public read, and staff edit (needs `auth` for the admin routes). */
   site?: SiteSettingsRepository;
   /**
@@ -271,6 +275,9 @@ export function buildApp(env: Env, deps: AppDeps, options: AppOptions = {}) {
   }
   if (deps.auth !== undefined && deps.tenantsAdmin !== undefined) {
     void app.register(tenantsAdminRoutes(deps.auth, deps.tenantsAdmin), { prefix: '/api/v1' });
+  }
+  if (deps.auth !== undefined && deps.overviewAdmin !== undefined) {
+    void app.register(overviewAdminRoutes(deps.auth, deps.overviewAdmin), { prefix: '/api/v1' });
   }
   if (deps.catalog !== undefined) {
     void app.register(catalogRoutes(deps.catalog), { prefix: '/api/v1' });

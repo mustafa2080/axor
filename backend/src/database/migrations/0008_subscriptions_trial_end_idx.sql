@@ -1,0 +1,1 @@
+CREATE INDEX `subscriptions_status_trial_end_idx` ON `subscriptions` (`status`,`trial_ends_at`);

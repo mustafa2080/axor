@@ -105,3 +105,11 @@ export const LogoutIcon = () => (
     <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9" />
   </Icon>
 )
+export const GaugeIcon = () => (
+  <Icon>
+    <rect x="4" y="4" width="7" height="9" rx="1.5" />
+    <rect x="13" y="4" width="7" height="5" rx="1.5" />
+    <rect x="13" y="11" width="7" height="9" rx="1.5" />
+    <rect x="4" y="15" width="7" height="5" rx="1.5" />
+  </Icon>
+)

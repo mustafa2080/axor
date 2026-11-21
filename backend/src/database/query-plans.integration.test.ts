@@ -10,6 +10,7 @@ import { runMigrations } from './migrate.js';
 import { createAuditAdminRepository } from './repositories/audit-admin.repository.js';
 import { createCatalogAdminRepository } from './repositories/catalog-admin.repository.js';
 import { createMembersRepository } from './repositories/members.repository.js';
+import { createOverviewAdminRepository } from './repositories/overview-admin.repository.js';
 import { createSubscriptionsRepository } from './repositories/subscriptions.repository.js';
 import { createTenantsAdminRepository } from './repositories/tenants-admin.repository.js';
 import { TenantAuditLogsRepository } from './repositories/tenant-audit-logs.repository.js';
@@ -262,6 +263,11 @@ describe('query plans: sweeps and catalog reads', () => {
     expectIndexed(await planOf(() => sweep.expireDue()), {
       allowSort: 'sorts only the due rows (status + period index range), and the sweep runs in batches',
     });
+  });
+
+  it('the admin overview counts companies and subscriptions through their status indexes', async () => {
+    const overview = createOverviewAdminRepository(db, { now: () => new Date(BASE_TIME) });
+    expectIndexed(await planOf(() => overview.summary()));
   });
 
   it('the admin catalog page loads products, activities, plans and versions by key', async () => {

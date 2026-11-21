@@ -4,7 +4,7 @@ import type { PlanChoice } from './plan-choice.ts'
 import { hashPath, publicRouteOf } from './routes.ts'
 import type { PublicRoute } from './routes.ts'
 
-export type Route = 'products' | 'plans' | 'subscriptions' | 'tenants' | 'audit' | 'site'
+export type Route = 'products' | 'plans' | 'subscriptions' | 'tenants' | 'audit' | 'site' | 'overview'
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener('hashchange', callback)
@@ -24,6 +24,7 @@ export function useRoute(): Route {
   if (path === '#/tenants') return 'tenants'
   if (path === '#/audit') return 'audit'
   if (path === '#/site') return 'site'
+  if (path === '#/overview') return 'overview'
   return 'products'
 }
 

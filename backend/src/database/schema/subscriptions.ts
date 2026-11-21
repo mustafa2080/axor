@@ -41,5 +41,7 @@ export const subscriptions = mysqlTable(
     // Admin subscription list: newest first, optionally one status (ADR-0018).
     index('subscriptions_created_idx').on(t.createdAt, t.id),
     index('subscriptions_status_created_idx').on(t.status, t.createdAt, t.id),
+    // Admin overview: trials ending within a window, a range on trial_ends_at inside one status.
+    index('subscriptions_status_trial_end_idx').on(t.status, t.trialEndsAt),
   ],
 );

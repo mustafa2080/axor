@@ -5,10 +5,11 @@ import { ErrorPage, NotFoundPage } from '../components/ErrorPage.tsx'
 import { ErrorNote, Loading } from '../components/ui.tsx'
 import { AppShell } from '../components/AppShell.tsx'
 import type { NavItem } from '../components/AppShell.tsx'
-import { BoxIcon, BuildingIcon, ImageIcon, LayersIcon, RepeatIcon, ShieldIcon } from '../components/icons.tsx'
+import { BoxIcon, BuildingIcon, GaugeIcon, ImageIcon, LayersIcon, RepeatIcon, ShieldIcon } from '../components/icons.tsx'
 import { platformRoleLabel } from '../lib/labels.ts'
 import { isKnownPlatformHash } from '../lib/routes.ts'
 import { useHash, useRoute } from '../lib/useRoute.ts'
+import { OverviewPage } from '../overview/OverviewPage.tsx'
 import { SitePage } from '../site/SitePage.tsx'
 import { SubscriptionsPage } from '../subscriptions/SubscriptionsPage.tsx'
 import { TenantsPage } from '../tenants/TenantsPage.tsx'
@@ -37,6 +38,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const catalogRoute = route === 'products' || route === 'plans'
 
   const items: NavItem[] = [
+    { href: '#/overview', label: 'نظرة عامة', icon: <GaugeIcon />, current: known && route === 'overview' },
     { href: '#/products', label: 'الأنظمة والأنشطة', icon: <BoxIcon />, current: known && route === 'products' },
     { href: '#/plans', label: 'الباقات', icon: <LayersIcon />, current: known && route === 'plans' },
     { href: '#/subscriptions', label: 'الاشتراكات', icon: <RepeatIcon />, current: known && route === 'subscriptions' },
@@ -53,6 +55,7 @@ function Dashboard({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       onSignOut={onSignOut}
     >
         {!known ? <NotFoundPage /> : null}
+        {known && route === 'overview' ? <OverviewPage /> : null}
         {known && route === 'subscriptions' ? <SubscriptionsPage /> : null}
         {known && route === 'tenants' ? <TenantsPage /> : null}
         {known && route === 'audit' ? <AuditPage /> : null}

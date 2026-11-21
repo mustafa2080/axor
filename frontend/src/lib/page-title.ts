@@ -29,6 +29,7 @@ const COMPANY: Readonly<Record<string, string>> = {
 }
 
 const PLATFORM: Readonly<Record<string, string>> = {
+  '#/overview': 'نظرة عامة',
   '#/plans': 'الباقات',
   '#/subscriptions': 'الاشتراكات',
   '#/tenants': 'الشركات',

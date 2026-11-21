@@ -77,7 +77,7 @@ describe('isKnownCompanyHash', () => {
   })
 
   it('rejects platform-only and unknown links', () => {
-    for (const hash of ['#/products', '#/subscriptions', '#/tenants', '#/audit', '#/site', '#/admin', '#/start/x']) {
+    for (const hash of ['#/products', '#/subscriptions', '#/tenants', '#/audit', '#/site', '#/overview', '#/admin', '#/start/x']) {
       expect(isKnownCompanyHash(hash), hash).toBe(false)
     }
   })
@@ -85,7 +85,7 @@ describe('isKnownCompanyHash', () => {
 
 describe('isKnownPlatformHash', () => {
   it('accepts the platform area, home, and public links', () => {
-    for (const hash of ['#/', '#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit', '#/site', '#/login', '#/register']) {
+    for (const hash of ['#/', '#/products', '#/plans', '#/subscriptions', '#/tenants', '#/audit', '#/site', '#/overview', '#/overview?x=1', '#/login', '#/register']) {
       expect(isKnownPlatformHash(hash), hash).toBe(true)
     }
   })

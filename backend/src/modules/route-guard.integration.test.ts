@@ -8,6 +8,7 @@ import { createAuditAdminRepository } from '../database/repositories/audit-admin
 import { createCatalogAdminRepository } from '../database/repositories/catalog-admin.repository.js';
 import { createCatalogRepository } from '../database/repositories/catalog.repository.js';
 import { createMembersRepository } from '../database/repositories/members.repository.js';
+import { createOverviewAdminRepository } from '../database/repositories/overview-admin.repository.js';
 import { createSubscriptionsRepository } from '../database/repositories/subscriptions.repository.js';
 import { createTenantsAdminRepository } from '../database/repositories/tenants-admin.repository.js';
 import * as schema from '../database/schema/index.js';
@@ -58,6 +59,7 @@ const RULES = {
   'company-reads-members': ['tenantOwner', 'tenantAdmin', 'tenantMember'],
   'company-manages-members': ['tenantOwner', 'tenantAdmin'],
   'staff-reads-tenants': ['platformOwner', 'platformAdmin', 'platformSupport'],
+  'staff-reads-overview': ['platformOwner', 'platformAdmin', 'platformSupport'],
   'staff-manages-tenants': ['platformOwner', 'platformAdmin'],
 } satisfies Record<string, Caller[]>;
 type Rule = keyof typeof RULES;
@@ -98,6 +100,7 @@ const INVENTORY: Record<string, Rule | typeof PUBLIC> = {
   'GET /api/v1/admin/tenants': 'staff-reads-tenants',
   'POST /api/v1/admin/tenants/:id/suspend': 'staff-manages-tenants',
   'POST /api/v1/admin/tenants/:id/reactivate': 'staff-manages-tenants',
+  'GET /api/v1/admin/overview': 'staff-reads-overview',
 };
 
 type Method = 'GET' | 'POST' | 'PATCH';
@@ -128,6 +131,7 @@ function newApp() {
     auditAdmin: createAuditAdminRepository(db),
     members: createMembersRepository(db),
     tenantsAdmin: createTenantsAdminRepository(db),
+    overviewAdmin: createOverviewAdminRepository(db),
   });
 }
 
@@ -258,6 +262,7 @@ describe('HEAD requests', () => {
     '/admin/subscriptions',
     '/admin/catalog',
     '/admin/tenants',
+    '/admin/overview',
     '/admin/audit-logs',
   ])(
     'cannot bypass authentication on %s',

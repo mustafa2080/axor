@@ -50,7 +50,13 @@ describe('pageTitle', () => {
     expect(pageTitle('platform', '#/subscriptions')).toBe('الاشتراكات | AXOR')
     expect(pageTitle('platform', '#/tenants')).toBe('الشركات | AXOR')
     expect(pageTitle('platform', '#/audit')).toBe('سجل التدقيق | AXOR')
+    expect(pageTitle('platform', '#/overview')).toBe('نظرة عامة | AXOR')
     expect(pageTitle('platform', '#/login')).toBe('الأنظمة والأنشطة | AXOR')
+  })
+
+  it('treats the platform overview as a 404 for visitors and company users', () => {
+    expect(pageTitle('public', '#/overview')).toBe('الصفحة مش موجودة | AXOR')
+    expect(pageTitle('company', '#/overview')).toBe('الصفحة مش موجودة | AXOR')
   })
 
   it('shows only the brand while loading', () => {
